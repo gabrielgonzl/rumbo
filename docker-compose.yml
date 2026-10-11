@@ -1,0 +1,20 @@
+# Arranca con:  docker compose up -d --build        Abre:  http://127.0.0.1:8765/
+services:
+  rumbo:
+    build: .
+    image: rumbo:local
+    container_name: rumbo
+    restart: unless-stopped
+    ports:
+      # Solo tu propio ordenador. NO quites el 127.0.0.1: sin él, tu red podría ver tu cartera.
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ./mis_datos:/data          # mismo sitio que usa la app sin Docker: tus datos no se pierden
+    read_only: true                # el sistema de archivos de la imagen no se puede modificar
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m

@@ -706,13 +706,21 @@ body.video .tarjetaCanal{display:none}
   <section class="tarjeta" id="seccionProyeccion" style="margin-top:16px">
     <header>
       <h2>Si sigo así…</h2>
-      <span class="subt">Proyección orientativa: rentabilidad constante, sin impuestos ni inflación</span>
+      <span class="subt" id="proySubt">Orientativa · sin impuestos ni inflación</span>
+      <div class="sep"></div>
+      <div class="segm" id="segModoProy" role="group" aria-label="Cómo proyectar">
+        <button data-m="global" title="Una sola rentabilidad para toda la cartera">Global</button>
+        <button data-m="activo" title="Cada activo llega a su precio objetivo">Por activo</button>
+        <button data-m="mixto" title="Los activos sin objetivo usan la media de los que sí lo tienen">Mixto</button>
+      </div>
     </header>
     <div class="mandos">
       <div class="mando"><label>Años <b id="vAnos">15</b></label><input type="range" id="rAnos" min="1" max="40" value="15"></div>
-      <div class="mando"><label>Rentabilidad anual <b id="vRent">7 %</b></label><input type="range" id="rRent" min="0" max="15" step="0.5" value="7"></div>
+      <div class="mando"><label><span id="etqRent">Rentabilidad anual</span> <b id="vRent">7 %</b></label><input type="range" id="rRent" min="0" max="15" step="0.5" value="7"></div>
       <div class="mando"><label>Aportación mensual <b id="vApor">—</b></label><input type="range" id="rApor" min="0" max="3000" step="50" value="500"></div>
     </div>
+    <div class="tablaEnv" id="proyActivos" hidden style="margin-bottom:16px"><table class="dt" id="tablaProy"></table></div>
+    <div class="hSub" id="proyNota" style="margin-bottom:12px" hidden></div>
     <div class="envGraf" id="grafProy"></div>
     <div class="hSub" id="proyResumen" style="margin-top:14px"></div>
   </section>
@@ -892,7 +900,7 @@ body.video .tarjetaCanal{display:none}
   // Con file:// no se puede anadir "?v=": algunos navegadores no encuentran
   // el archivo. Ahi basta con la revalidacion por fecha de modificacion.
   var sello = location.protocol === "file:" ? "" : "?v=" + Date.now();
-  ["datos.js", "canal.js", "graficos.js", "app.js", "editor.js"].forEach(function (archivo) {
+  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "app.js", "editor.js"].forEach(function (archivo) {
     var s = document.createElement("script");
     s.src = archivo + sello;
     s.async = false;

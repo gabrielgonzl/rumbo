@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv/
+.venv-pip/
+__pycache__/
+*.pyc
+mis_datos/
+docs/
+tests/
+Iniciar.bat
+Iniciar.command
+uv.lock
+*.md

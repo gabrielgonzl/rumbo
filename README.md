@@ -31,6 +31,7 @@ Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil
 - [Publicar tu panel como web](#publicar-tu-panel-como-web)
 - [Actualizar a una versión nueva](#actualizar-a-una-versión-nueva)
 - [Preguntas frecuentes](#preguntas-frecuentes)
+- [Ejecutar con Docker](#ejecutar-con-docker)
 - [Privacidad](#privacidad)
 - [Limitaciones conocidas](#limitaciones-conocidas)
 - [Para curiosos: cómo está hecho](#para-curiosos-cómo-está-hecho)
@@ -45,6 +46,7 @@ Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil
 - **Buscador por ISIN, ticker o nombre** que comprueba que el producto tiene precio antes de guardarlo y rellena solo la comisión (TER), el riesgo y la categoría.
 - **Cifras honestas**: aportado, plusvalía, **TIR** (la rentabilidad real de tu dinero), rentabilidad por año, peor caída, racha de aportaciones…
 - **Comparación con un indexado**: con tus mismas aportaciones, ¿cuánto tendrías en el MSCI World, el S&P 500 o una cartera 60/40?
+- **«Si sigo así…» con precios objetivo**: proyecta a N años con una rentabilidad global, con el precio que crees que tendrá cada activo, o mixto (los activos sin objetivo usan la media de los que sí lo tienen). La aportación mensual va aparte y no se atribuye a ningún activo.
 - **Importación de golpe**: el CSV de MyInvestor, una plantilla de Excel o el extracto de cualquier banco convertido con una IA gratuita.
 - **Nunca tocas un archivo a mano**: todo se hace con formularios, con validación y mensajes en castellano llano.
 - **Copias de seguridad automáticas** y exportación del panel a una página web (con opción de **ocultar los importes**).
@@ -325,6 +327,29 @@ La rentabilidad compara lo que vale tu cartera con lo que has metido. La **TIR**
 
 Lee el mensaje de la ventana: casi siempre dice qué pasa. Lo más habitual es no tener conexión a internet la primera vez (hace falta para descargar Python). Si no lo consigues, [abre una incidencia](../../issues) con una captura del mensaje.
 </details>
+
+---
+
+## Ejecutar con Docker
+
+Rumbo también puede correr dentro de un contenedor de Docker.
+
+1. Necesitas tener instalado **Docker Desktop** y abierto.
+2. Abre una terminal en la carpeta de la app y ejecuta:
+
+   ```
+   docker compose up -d --build
+   ```
+
+3. Abre **http://127.0.0.1:8765/** en tu navegador.
+
+Tus datos se guardan en la carpeta **`mis_datos`** de siempre, que se monta dentro del contenedor, así que se conservan al actualizar o recrear el contenedor.
+
+- Para parar la app: `docker compose down`. Para ver los registros: `docker logs rumbo`.
+- El puerto solo se publica en `127.0.0.1`. No lo cambies.
+- El contenedor corre sin privilegios y con el sistema de archivos de solo lectura.
+- Si quieres abrirla con otro nombre de host, usa la variable `PATRIMONIO_HOSTS`. Ojo: la app no tiene contraseña; no publiques el puerto fuera de `127.0.0.1` (por ejemplo `0.0.0.0`), o cualquiera en tu red podría ver tu cartera.
+- La app rechaza las peticiones que llegan desde otras webs: así, una página abierta en el navegador no puede leer tu cartera.
 
 ---
 

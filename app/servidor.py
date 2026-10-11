@@ -17,6 +17,7 @@ import sys
 import threading
 import urllib.request
 import webbrowser
+from urllib.parse import urlsplit
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 from werkzeug.serving import make_server
@@ -29,6 +30,13 @@ WEB = os.path.join(RAIZ, "app", "web")
 DATOS = os.environ.get("PATRIMONIO_DATOS") or os.path.join(RAIZ, "mis_datos")
 DEMO = os.path.join(RAIZ, "demo", "cartera.json")
 PUERTO = int(os.environ.get("PATRIMONIO_PUERTO") or 8765)
+# Dónde escucha: solo este ordenador. En Docker se pone 0.0.0.0 *dentro* del contenedor
+# y el puerto se publica solo en 127.0.0.1 del anfitrión (ver docker-compose.yml).
+ESCUCHA = os.environ.get("PATRIMONIO_ESCUCHA") or "127.0.0.1"
+# Nombres con los que se puede abrir la app (frena el «DNS rebinding»).
+# Para añadir otro: PATRIMONIO_HOSTS=mi-nas.local,otro.lan
+HOSTS_PERMITIDOS = {"127.0.0.1", "localhost", "::1"} | {
+    h.strip().lower() for h in (os.environ.get("PATRIMONIO_HOSTS") or "").split(",") if h.strip()}
 HORAS_PRECIOS = 6          # al arrancar, se actualizan si tienen más de esto
 
 app = Flask(__name__, static_folder=None)
@@ -95,6 +103,44 @@ def precios_viejos():
     if not ultima or not os.path.exists(ruta_calculado()):
         return True
     return dt.datetime.now() - dt.datetime.fromisoformat(ultima) > dt.timedelta(hours=HORAS_PRECIOS)
+
+
+# ---------------------------------------------------------------- seguridad
+
+@app.before_request
+def controla_origen():
+    """Solo atiende a la propia app. Una web ajena abierta en tu navegador puede lanzar
+    peticiones a 127.0.0.1 (cargar /datos.js como <script>, enviar un formulario...) y
+    CORS no lo impide; aquí se rechaza todo lo que no venga de la propia página."""
+    host = (urlsplit("//" + request.host).hostname or "").lower()
+    if host not in HOSTS_PERMITIDOS:                      # DNS rebinding
+        return jsonify(ok=False, errores=["Host no permitido."]), 403
+    sitio = request.headers.get("Sec-Fetch-Site")
+    if sitio:                                             # navegadores modernos
+        validos = {"same-origin"} if request.method not in ("GET", "HEAD") else {"same-origin", "none"}
+        if sitio not in validos:
+            return jsonify(ok=False, errores=["Petición de otro origen rechazada."]), 403
+        return None
+    # Sin Sec-Fetch-Site: navegador antiguo (manda Origin/Referer) o cliente sin navegador (curl,
+    # healthcheck), que no manda ninguno de los dos y no es el vector de este ataque.
+    if request.method not in ("GET", "HEAD") and not request.headers.get("Origin"):
+        return jsonify(ok=False, errores=["Falta el origen de la petición."]), 403   # escribir exige Origin
+    for cab in ("Origin", "Referer"):
+        valor = request.headers.get(cab)
+        if valor and valor != "null" and urlsplit(valor).netloc != request.host:
+            return jsonify(ok=False, errores=["Petición de otro origen rechazada."]), 403
+        if valor == "null":
+            return jsonify(ok=False, errores=["Petición de otro origen rechazada."]), 403
+    return None
+
+
+@app.after_request
+def cabeceras_de_proteccion(resp):
+    resp.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")  # nadie la incrusta
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "same-origin")
+    return resp
 
 
 # ---------------------------------------------------------------- rutas
@@ -486,7 +532,7 @@ def main():
     srv = None
     for puerto in range(PUERTO, PUERTO + 10):
         try:
-            srv = make_server("127.0.0.1", puerto, app, threaded=True)
+            srv = make_server(ESCUCHA, puerto, app, threaded=True)
             break
         except OSError:
             continue

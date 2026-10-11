@@ -529,36 +529,97 @@
     }).join("");
   }
 
+  /* ---- Si sigo así…: proyección global, por activo (precio objetivo) o mixta ---- */
+  const proy = { modo: "global", objetivos: {}, clave: "" };   // los objetivos solo viven en esta sesión
+
+  function activosProyeccion() {
+    const lista = visibles(), activos = [];
+    let valorBase = 0;
+    lista.forEach(p => {
+      const v = valorDe(p);
+      if (!(v > 0)) { valorBase += v; return; }          // deudas: se mantienen fijas
+      activos.push({ id: p.id, nombre: p.corto || p.nombre, color: color(p), valor: v,
+                     precio: (p.precioActual || p.nav) > 0 ? (p.precioActual || p.nav) : null, tipo: p.tipoClave || "" });
+    });
+    return { activos, valorBase };
+  }
+
   function pintaProyeccion() {
     const anos = +$("#rAnos").value, rent = +$("#rRent").value / 100, apor = +$("#rApor").value;
     $("#vAnos").textContent = anos;
     $("#vRent").textContent = $("#rRent").value.replace(".", ",") + " %";
     $("#vApor").textContent = G.fmtEur(apor, 0);
+    document.querySelectorAll("#segModoProy button").forEach(b =>
+      b.setAttribute("aria-pressed", String(b.dataset.m === proy.modo)));
+    const global = proy.modo === "global";
+    $("#etqRent").textContent = global ? "Rentabilidad anual" : "Rentabilidad sin objetivos";
+    $("#proyActivos").hidden = global;
 
-    const m = metricas(visibles());
-    const rm = rent / 12, n = anos * 12;
-    const fechas = [], valores = [], aportado = [];
-    const base = new Date(D.fechaExtracto);
-    let v = m.valor, ap = m.aportado;
-    for (let i = 0; i <= n; i++) {
-      const f = new Date(base.getFullYear(), base.getMonth() + i, 1);
-      fechas.push(f.toISOString().slice(0, 10));
-      valores.push(Math.round(v));
-      aportado.push(Math.round(ap));
-      v = v * (1 + rm) + apor;
-      ap += apor;
+    const { activos, valorBase } = activosProyeccion();
+    const entrada = (a) => ({ ...a, objetivo: proy.objetivos[a.id] > 0 ? proy.objetivos[a.id] : null });
+    const sim = Proyeccion.simula({ activos: activos.map(entrada), anos, modo: proy.modo,
+                                    rentGlobal: rent, aportacion: apor, valorBase });
+
+    // La tabla se vuelve a dibujar solo si cambian los activos o el modo: así no pierdes el foco al escribir.
+    const clave = proy.modo + "|" + activos.map(a => a.id).join(",");
+    if (!global && clave !== proy.clave) {
+      proy.clave = clave;
+      $("#tablaProy").innerHTML =
+        `<thead><tr><th>Activo</th><th>Vale hoy</th><th>Precio hoy</th>
+          <th>Precio dentro de <span id="anosTabla"></span> años</th><th>Rentab. anual</th><th>Valdría</th></tr></thead>
+         <tbody>${activos.map(a => `<tr>
+          <td><i class="pt" style="background:${a.color}"></i>${a.nombre}</td>
+          <td>${G.fmtEur(a.valor, 0)}</td>
+          <td>${a.precio != null ? G.fmtEur(a.precio, a.precio < 10 ? 3 : 2) : "—"}</td>
+          <td><input type="number" min="0" step="any" class="inObj" data-id="${a.id}" placeholder="vacío"
+               value="${proy.objetivos[a.id] ?? ""}" ${a.precio == null ? "disabled title='Sin precio de mercado'" : ""}
+               style="width:96px;text-align:right"></td>
+          <td data-r="${a.id}">—</td><td data-f="${a.id}">—</td></tr>`).join("")}</tbody>`;
+      $("#tablaProy").querySelectorAll("input.inObj").forEach(inp => {
+        inp.addEventListener("input", () => {
+          const v = parseFloat(inp.value.replace(",", "."));
+          if (v > 0) proy.objetivos[inp.dataset.id] = v; else delete proy.objetivos[inp.dataset.id];
+          pintaProyeccion();
+        });
+      });
     }
+    if (!global) {
+      $("#anosTabla").textContent = anos;
+      activos.forEach(a => {
+        const r = sim.porActivo[a.id];
+        const rc = $("#tablaProy").querySelector(`[data-r="${a.id}"]`);
+        const fc = $("#tablaProy").querySelector(`[data-f="${a.id}"]`);
+        if (!rc) return;
+        rc.textContent = G.fmtPctSigno(r.rent, 1) + (r.propia ? "" : r.rent ? " (media)" : " (quieto)");
+        rc.className = r.rent >= 0 ? "pos" : "neg";
+        fc.textContent = G.fmtEur(r.final, 0);
+      });
+    }
+
+    const base = new Date(D.fechaExtracto);
+    const fechas = sim.total.map((_, i) =>
+      new Date(base.getFullYear(), base.getMonth() + i, 1).toISOString().slice(0, 10));
     G.lineaConEventos($("#grafProy"), {
-      fechas, valores, color: G.css("--s3"), alto: 250,
-      overlay: { nombre: "Habré aportado", valores: aportado },
+      fechas, valores: sim.total.map(Math.round), color: G.css("--s3"), alto: 250,
+      overlay: { nombre: "Habré aportado", valores: sim.aportado.map(Math.round) },
     });
-    const fin = valores[valores.length - 1], apFin = aportado[aportado.length - 1];
+
+    const m0 = sim.total[0], fin = sim.total[sim.total.length - 1], apFin = sim.aportado[sim.aportado.length - 1];
+    $("#proyNota").hidden = global;
+    if (!global) {
+      const hay = sim.media != null;
+      $("#proyNota").textContent = hay
+        ? `Media de tus objetivos: ${G.fmtPctSigno(sim.media, 1)} anual (solo cuentan los activos con precio objetivo). ` +
+          `Tus aportaciones mensuales crecen a ese ritmo y no se atribuyen a ningún activo.`
+        : `Aún no has puesto ningún precio objetivo: los activos ${proy.modo === "mixto" ? "usan" : "se quedan sin crecer; las aportaciones usan"} ` +
+          `la rentabilidad de ${$("#rRent").value.replace(".", ",")} %.`;
+    }
     $("#proyResumen").innerHTML =
-      `Partiendo de ${G.fmtEur(m.valor, 0)}${filtrando() ? " (vista filtrada)" : ""},
+      `Partiendo de ${G.fmtEur(m0, 0)}${filtrando() ? " (vista filtrada)" : ""},
        en <b class="fuerte">${anos} años</b> tendrías <b class="fuerte">${G.fmtEur(fin, 0)}</b>
        <span style="color:var(--tinta3)">·</span> habrías aportado ${G.fmtEur(apFin, 0)}
        <span style="color:var(--tinta3)">·</span> el mercado pondría
-       <span class="pos fuerte">${G.fmtEur(fin - apFin, 0)}</span>`;
+       <span class="pos fuerte">${G.fmtEur(fin - m0 - apFin, 0)}</span>`;
   }
 
   function pintaTabla() {
@@ -1130,6 +1191,9 @@
   $("#mesPrev").onclick = () => { estado.mes = Math.max(0, estado.mes - 1); pintaMes(); };
   $("#mesNext").onclick = () => { estado.mes = Math.min(D.resumenMensual.length - 1, estado.mes + 1); pintaMes(); };
   ["rAnos", "rRent", "rApor"].forEach(id => $("#" + id).addEventListener("input", pintaProyeccion));
+  document.querySelectorAll("#segModoProy button").forEach(b => {
+    b.onclick = () => { proy.modo = b.dataset.m; proy.clave = ""; pintaProyeccion(); };
+  });
   $("#rApor").value = Math.min(3000, Math.max(0, Math.round((D.total.ritmoMensual || 500) / 50) * 50));
 
   document.addEventListener("keydown", e => {
