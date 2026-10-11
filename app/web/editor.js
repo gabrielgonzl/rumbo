@@ -165,7 +165,7 @@
       <div id="edAvisos" class="avisos"></div><div id="edCuerpo"></div>`;
     cont.innerHTML = html;
 
-    const vistas = [["productos", "Productos"], ["movimientos", "Movimientos"], ["saldos", "Saldos y valores"], ["importar", "Importar"], ["copias", "Copias y web"]];
+    const vistas = [["productos", "Productos"], ["movimientos", "Movimientos"], ["saldos", "Saldos y valores"], ["pignoraciones", "Pignoraciones"], ["importar", "Importar"], ["copias", "Copias y web"]];
     const seg = $("#edVistas");
     vistas.forEach(([id, et]) => {
       const b = document.createElement("button");
@@ -175,10 +175,150 @@
       seg.appendChild(b);
     });
     $("#edCuerpo").innerHTML = ({ productos: vistaProductos, movimientos: vistaMovimientos, saldos: vistaSaldos,
-      importar: vistaImportar, copias: vistaCopias }[E.vista] || vistaProductos)();
+      pignoraciones: vistaPignoraciones, importar: vistaImportar, copias: vistaCopias }[E.vista] || vistaProductos)();
     if (E.vista === "importar" || E.vista === "copias") conectaImportar();
     const filtro = $("#edFiltro");
     if (filtro) filtro.onchange = e => { E.filtro = e.target.value; pinta(); };
+  }
+
+
+  /* ---------------------------------------------- pignoraciones */
+  const PIG = () => E.cfg.pignoraciones || [];
+  const calculada = id => ((D && D.pignoraciones) || []).find(x => x.id === id);
+
+  function vistaPignoraciones() {
+    const filas = PIG().map(x => {
+      const liq = x.estado === "liquidada";
+      const activos = x.activos.map(a => esc(nombre(prod(a)))).join(", ");
+      return `<tr><td>${esc(x.nombre)}${x.entidad ? ` <small class="idp">${esc(x.entidad)}</small>` : ""}</td>
+        <td>${activos}</td><td>${eur(x.principal)}</td><td>${num(x.interes, 2)} %</td>
+        <td>${x.cuota ? eur(x.cuota) : "—"}</td>
+        <td>${liq ? `<span class="pos">Liquidada el ${fecha(x.fechaLiquidacion)}</span>` : "Activa"}</td>
+        <td class="acc"><button data-acc="editarPig" data-id="${esc(x.id)}">Editar</button>
+          ${liq ? `<button data-acc="reabrirPig" data-id="${esc(x.id)}">Reabrir</button>`
+            : `<button data-acc="liquidarPig" data-id="${esc(x.id)}">Liquidar</button>`}
+          <button data-acc="borrarPig" data-id="${esc(x.id)}">Borrar</button></td></tr>`;
+    }).join("");
+    return `<section class="tarjeta"><header><h2>Pignoraciones</h2>
+        <span class="subt">Préstamos que te da el broker con tus activos como garantía. Cuentan como deuda en tu
+          patrimonio y los activos pignorados no se pueden vender mientras dure.</span><span class="sp"></span>
+        <button class="btn prim" data-acc="nuevaPig">+ Añadir pignoración</button></header>
+      ${filas ? `<div class="tablaEnv"><table class="dt"><thead><tr><th>Préstamo</th><th>Activos en garantía</th>
+        <th>Recibido</th><th>Interés</th><th>Cuota</th><th>Estado</th><th></th></tr></thead>
+        <tbody>${filas}</tbody></table></div>`
+        : `<p class="subt">Todavía no has anotado ninguna. Si tienes un préstamo con garantía de tus fondos o
+          acciones, añádelo para ver su coste real, el margen que te queda y qué implica.</p>`}</section>`;
+  }
+
+  function formPignoracion(x) {
+    const nuevo = !x;
+    const candidatos = E.cfg.productos.filter(p => !soloSaldo(p));
+    let cuadro = x && x.cuadro ? x.cuadro : null;
+    const f = abreModal(`${nuevo ? "Añadir" : "Editar"} pignoración`, `
+      <div class="resumen"><span>Si tienes el <b>cuadro de amortización</b> (Excel o CSV de tu broker), súbelo y se rellena
+        casi todo. Si no, escribe los datos del contrato.</span></div>
+      <div class="rejilla">
+        ${campo("Cuadro de amortización", '<input type="file" name="cuadroArchivo" accept=".xlsx,.xlsm,.csv,.txt">',
+          "opcional: Excel o CSV de tu broker", "ancho")}
+        <div class="ancho" id="pgInfoCuadro" hidden></div>
+        ${campo("Nombre", '<input name="nombre" placeholder="Préstamo con mi cartera indexada">', "", "ancho")}
+        ${campo("Entidad", '<input name="entidad" placeholder="MyInvestor">')}
+        ${campo("Fecha en que recibiste el dinero", '<input type="date" name="fecha">')}
+        ${campo("Dinero recibido (principal)", '<div class="conSufijo"><input name="principal" inputmode="decimal" placeholder="10.000,00"><span>€</span></div>')}
+        ${campo("Interés anual (TIN)", '<div class="conSufijo"><input name="interes" inputmode="decimal" placeholder="5"><span>%</span></div>')}
+        ${campo("Número de cuotas", '<input name="cuotas" inputmode="numeric" placeholder="240">')}
+        ${campo("Cuota mensual", '<div class="conSufijo"><input name="cuota" inputmode="decimal" placeholder="106,07"><span>€</span></div>', "opcional: se calcula sola")}
+        ${campo("Fecha de la primera cuota", '<input type="date" name="primerPago">')}
+        ${campo("Comisión de apertura", '<div class="conSufijo"><input name="comisionApertura" inputmode="decimal" placeholder="0"><span>€</span></div>', "0 si no hubo")}
+        ${campo("Comisión de cancelación anticipada", '<div class="conSufijo"><input name="comisionCancelacion" inputmode="decimal" placeholder="0"><span>%</span></div>', "% sobre lo que quede por pagar")}
+        ${campo("Límite de préstamo sobre garantía (LTV máx.)", '<div class="conSufijo"><input name="ltvMax" inputmode="decimal" placeholder="opcional"><span>%</span></div>', "míralo en tu contrato: sirve para calcular tu margen")}
+      </div>
+      ${seccion("Activos en garantía")}
+      <div class="rejilla">${candidatos.length ? candidatos.map(p => `
+        <label class="campo"><span class="et"><input type="checkbox" name="activo" value="${esc(p.id)}"
+          ${x && x.activos.includes(p.id) ? "checked" : ""}> ${esc(nombre(p))}</span></label>`).join("")
+        : '<p class="subt ancho">Añade primero los productos que has pignorado.</p>'}</div>
+      ${seccion("Qué hiciste con el dinero")}
+      <div class="rejilla">
+        ${campo("Lo tuve como efectivo hasta el", '<input type="date" name="efectivoHasta">',
+          "opcional: evita un falso bajón en tu patrimonio hasta que lo inviertas", "ancho")}
+      </div>`,
+    async f => {
+      const d = campos(f);
+      delete d.cuadroArchivo; delete d.activo;
+      d.activos = [...f.querySelectorAll("input[name=activo]:checked")].map(i => i.value);
+      if (cuadro) d.cuadro = cuadro;
+      if (!nuevo) d.id = x.id;
+      await guarda("pignoraciones", d);
+      E.vista = "pignoraciones";
+      recuerda.guarda("patrimonio.editor", "pignoraciones");
+      return null;
+    });
+    if (x) rellena(f, { ...x, principal: decimal(x.principal), interes: decimal(x.interes), cuota: decimal(x.cuota),
+      comisionApertura: decimal(x.comisionApertura), comisionCancelacion: decimal(x.comisionCancelacion),
+      ltvMax: decimal(x.ltvMax) });
+    else rellena(f, { fecha: hoy(), comisionApertura: "0", comisionCancelacion: "0" });
+
+    const aviso = txt => { const el = f.querySelector("#pgInfoCuadro"); el.hidden = !txt; el.innerHTML = txt || ""; };
+    if (cuadro) aviso(`<div class="resumen"><span>Cuadro guardado: ${cuadro.length} cuotas.</span></div>`);
+    f.elements.cuadroArchivo.onchange = async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append("archivo", file);
+      try {
+        const r = await fetch("api/pignoraciones/cuadro", { method: "POST", body: fd });
+        const j = await r.json();
+        if (!r.ok || j.ok === false) throw new Error((j.errores || ["No he podido leer el archivo."]).join("\n"));
+        cuadro = j.cuadro;
+        rellena(f, { principal: decimal(j.principal), interes: decimal(j.interes), cuotas: j.cuotas,
+          cuota: decimal(j.cuota), primerPago: j.primerPago });
+        if (!f.elements.fecha.value || nuevo) f.elements.fecha.value = j.fechaEstimada;
+        if (!f.elements.nombre.value) f.elements.nombre.value = "Préstamo con garantía";
+        aviso(`<div class="resumen"><span>Cuadro leído: <b>${j.cuotas} cuotas</b> de ${eur(j.cuota)} desde el
+          ${fecha(j.primerPago)}. Principal ${eur(j.principal)}, interés ${num(j.interes, 2)} %,
+          ${eur(j.interesesTotales)} de intereses en total. Revisa la fecha en que recibiste el dinero.</span></div>`);
+      } catch (err) {
+        cuadro = x && x.cuadro ? x.cuadro : null;
+        aviso(`<div class="av"><span>⚠</span><span>${esc(err.message)}</span></div>`);
+      }
+    };
+  }
+
+  function formLiquidar(x) {
+    const c = calculada(x.id);
+    abreModal(`Liquidar «${esc(x.nombre)}»`, `
+      <div class="resumen"><span>${c
+        ? `Hoy debes ${eur(c.saldo)} más ${eur(c.devengado)} de intereses devengados${c.penalizacion
+          ? ` y ${eur(c.penalizacion)} de comisión de cancelación` : ""}: <b>${eur(c.aLiquidar)}</b> en total.`
+        : "Anota la fecha y lo que pagaste para cancelarla."}
+        Los activos en garantía quedan libres y la deuda desaparece de tu patrimonio. Recuerda ordenar el pago
+        también en tu broker: aquí solo se anota.</span></div>
+      <div class="rejilla">
+        ${campo("Fecha de liquidación", `<input type="date" name="fecha" max="${hoy()}">`)}
+        ${campo("Lo que pagaste", '<div class="conSufijo"><input name="importe" inputmode="decimal" placeholder="0,00"><span>€</span></div>', "opcional")}
+      </div>`,
+    async f => {
+      const j = await api("POST", `api/pignoraciones/${encodeURIComponent(x.id)}/liquidar`, campos(f));
+      E.cfg = j.cartera; COP.lista = null; window.EDITOR_SUCIO = true; avisa(j.avisos);
+      return null;
+    }, "Liquidar");
+    $("#modal form").elements.fecha.value = hoy();
+  }
+
+  async function reabrirPig(id) {
+    if (!confirm("¿Volver a marcarla como activa? La deuda y el bloqueo de los activos vuelven a contar.")) return;
+    try {
+      const j = await api("POST", `api/pignoraciones/${encodeURIComponent(id)}/reabrir`);
+      E.cfg = j.cartera; window.EDITOR_SUCIO = true; avisa(j.avisos); pinta();
+    } catch (x) { avisa([x.message]); }
+  }
+
+  async function borrarPig(id) {
+    const x = PIG().find(y => y.id === id);
+    if (!confirm(`¿Borrar «${x ? x.nombre : "esta pignoración"}»? La deuda dejará de contar en tu patrimonio ` +
+      "y los activos quedarán libres. Si solo quieres cerrarla, usa «Liquidar».")) return;
+    try { await borra("pignoraciones", id); pinta(); } catch (e) { avisa([e.message]); }
   }
 
   /* ---------------------------------------------- productos */
@@ -810,6 +950,11 @@
     editarMov: soloPropio(id => formMovimiento(E.cfg.movimientos.find(m => m.id === id))),
     borrarMov: soloPropio(borrarMov),
     nuevoValor: soloPropio(id => formValor(null, id)),
+    nuevaPig: soloPropio(() => formPignoracion(null)),
+    editarPig: soloPropio(id => formPignoracion(PIG().find(x => x.id === id))),
+    liquidarPig: soloPropio(id => formLiquidar(PIG().find(x => x.id === id))),
+    reabrirPig: soloPropio(reabrirPig),
+    borrarPig: soloPropio(borrarPig),
     editarValor: soloPropio(id => formValor(E.cfg.valoraciones.find(v => v.id === id))),
     borrarValor: soloPropio(borrarValor),
     todosValores: soloPropio(todosValores),
@@ -885,7 +1030,10 @@
     }, 6000);
   })();
 
-  window.Editor = { mostrar: pinta };
+  window.Editor = {
+    mostrar: pinta,
+    vista: v => { E.vista = v; recuerda.guarda("patrimonio.editor", v); pinta(); },
+  };
   carga().then(pinta).catch(x => {
     const cont = $("#editor");
     if (cont) cont.innerHTML = `<div class="av"><span>⚠</span><span>${esc(x.message)}</span></div>`;

@@ -135,7 +135,15 @@
       : [mezcla(base, "#fcfcfb", 0.58), base, mezcla(base, "#000000", 0.32)];
   }
 
-  const TODOS = () => D.productos.concat(D.otrosActivos || [], D.pasivos || []);
+  // Los derivados de una pignoración (p. ej. el dinero recibido, ya invertido) no estorban a 0 €.
+  const TODOS = () => D.productos.concat(D.otrosActivos || [], D.pasivos || [])
+    .filter(p => !(p.derivado && !p.valor));
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  // Candado de los activos en garantía: no se pueden vender mientras dure la pignoración.
+  const bloqueo = p => p.pignoradoEn && p.pignoradoEn.length
+    ? `<span class="lock" title="Pignorado en «${esc(p.pignoradoEn.map(x => x.nombre).join("», «"))}»: ` +
+      `no se puede vender hasta liquidar la pignoración">🔒</span>` : "";
   const visibles = () => TODOS().filter(p => !estado.ocultos.has(p.id));
   const filtrando = () => estado.ocultos.size > 0;
   const buscaProd = id => TODOS().find(p => p.id === id);
@@ -473,7 +481,7 @@
       const plTarjeta = plusvaliaDe(p);
       const rent = plTarjeta ? plTarjeta.pct : null;
       b.innerHTML = `<span class="barra"></span>
-        <div class="nm"><i></i>${p.corto || p.nombre}</div>
+        <div class="nm"><i></i>${p.corto || p.nombre}${bloqueo(p)}</div>
         <div class="vl">${G.fmtEur(valorDe(p))}</div>
         <div class="pi"><span>${oculto ? "fuera del gráfico" : G.fmtPct(p.peso, 1) + " del total"}</span>
           <span class="${rent == null ? "" : rent >= 0 ? "pos" : "neg"}">${rent == null ? "—" : G.fmtPctSigno(rent, 1)}</span></div>
@@ -622,6 +630,63 @@
        <span class="pos fuerte">${G.fmtEur(fin - m0 - apFin, 0)}</span>`;
   }
 
+  /* ---- Pignoraciones: qué debo, qué cuesta y cuánto margen queda ---- */
+  function pintaPignoracion() {
+    const lista = (D.pignoraciones || []).slice().sort((a, b) =>
+      (a.estado === "activa" ? 0 : 1) - (b.estado === "activa" ? 0 : 1));
+    $("#seccionPignoracion").hidden = !lista.length;
+    if (!lista.length) return;
+    const kpi = (e, v, n) => `<div class="kpi"><div class="e">${e}</div><div class="v">${v}</div>` +
+      (n ? `<div class="n">${n}</div>` : "") + `</div>`;
+    $("#pignoraciones").innerHTML = lista.map(x => {
+      const activa = x.estado === "activa";
+      let riesgo = "";
+      if (activa && x.ratio != null) {
+        const nivel = x.ratio >= 0.85 ? "alto" : x.ratio >= 0.7 ? "medio" : "";
+        riesgo = `
+          <div class="hSub">El préstamo equivale al <b class="fuerte">${G.fmtPct(x.ratio, 1)}</b> del valor de lo
+            que has dejado en garantía (${G.fmtEur(x.garantia, 0)}).</div>
+          <div class="barra"><i class="${nivel}" style="width:${Math.min(100, x.ratio * 100).toFixed(1)}%"></i></div>
+          <div class="hSub">Si esos activos cayeran un <b class="${nivel === "alto" ? "neg" : "fuerte"}">${G.fmtPct(x.caidaHastaIgualar, 1)}</b>
+            valdrían lo mismo que la deuda.${x.caidaHastaLimite != null
+              ? ` Con el límite del ${String(x.ltvMax).replace(".", ",")} % de tu entidad, la garantía no puede bajar de
+                 ${G.fmtEur(x.garantiaMinima, 0)}: te quedan <b class="fuerte">${G.fmtPct(x.caidaHastaLimite, 1)}</b> de margen.`
+              : " Aún no has indicado el límite de tu entidad (LTV máximo): puedes añadirlo al editar la pignoración."}</div>`;
+      }
+      const implica = activa ? `<ul>
+          <li><b>Bloqueo:</b> ${x.activosDetalle.length > 1 ? "esos activos" : "ese activo"} no se pueden vender hasta
+            liquidar el préstamo.</li>
+          <li><b>Riesgo de liquidación forzosa:</b> si su valor baja demasiado, la entidad puede pedirte más garantía
+            o vender por ti, aunque sea en mal momento.</li>
+          <li><b>Coste:</b> pagas un ${String(x.interes).replace(".", ",")} % anual. Lo que hayas reinvertido con ese
+            dinero tiene que rendir más que eso para compensar.</li>
+          <li><b>Patrimonio neto:</b> la deuda pendiente se resta de tu patrimonio, así que no se infla con el dinero
+            recibido.</li></ul>` : "";
+      const liquidar = activa ? `<div class="liq">Liquidarla hoy costaría <b class="fuerte">${G.fmtEur(x.aLiquidar)}</b>
+          (deuda ${G.fmtEur(x.saldo)} + intereses devengados ${G.fmtEur(x.devengado)}${x.penalizacion
+            ? ` + comisión de cancelación ${G.fmtEur(x.penalizacion)}` : ""}) y te ahorraría unos
+          <b class="pos fuerte">${G.fmtEur(Math.max(0, x.ahorroSiLiquidas), 0)}</b> de intereses.</div>` : "";
+      return `<div class="pig">
+        <h3>${esc(x.nombre)}<span class="tag ${activa ? "aviso" : "ok"}">${activa ? "Activa" : "Liquidada"}</span>
+          ${x.entidad ? `<span class="subt">${esc(x.entidad)}</span>` : ""}</h3>
+        <div class="subt">Recibido el ${G.fmtFecha(x.fecha)}${x.fechaLiquidacion
+          ? " · liquidada el " + G.fmtFecha(x.fechaLiquidacion) : ""}</div>
+        <div class="kpis">
+          ${kpi("Deuda pendiente", G.fmtEur(x.saldo), x.devengado ? "+" + G.fmtEur(x.devengado) + " de intereses devengados" : "")}
+          ${kpi("Dinero recibido", G.fmtEur(x.recibido))}
+          ${kpi("Interés anual", String(x.interes).replace(".", ",") + " %", x.comisionApertura ? "apertura " + G.fmtEur(x.comisionApertura) : "sin comisión de apertura")}
+          ${kpi("Cuota mensual", G.fmtEur(x.cuota), activa && x.proxima ? "próxima: " + G.fmtFecha(x.proxima.fecha) : "")}
+          ${kpi("Cuotas pagadas", x.cuotasPagadas + " de " + x.cuotasTotal, x.fin ? "termina en " + G.fmtFecha(x.fin) : "")}
+          ${kpi("Intereses", G.fmtEur(x.interesesPagados, 0) + " pagados", G.fmtEur(x.interesesRestantes, 0) + " por pagar · coste total " + G.fmtEur(x.costeTotal, 0))}
+        </div>
+        <div class="hSub">En garantía:</div>
+        <div class="activos">${x.activosDetalle.map(a =>
+          `<span class="activo">${activa ? "🔒 " : ""}${esc(a.nombre)} · ${G.fmtEur(a.valor, 0)}</span>`).join("")}</div>
+        ${riesgo ? `<div style="margin-top:14px">${riesgo}</div>` : ""}
+        ${implica}${liquidar}</div>`;
+    }).join("");
+  }
+
   function pintaTabla() {
     const filas = [];
     D.productos.forEach(p => (p.aportaciones || []).forEach(a => {
@@ -674,6 +739,7 @@
     pintaDistribucion();
     pintaBarras();
     pintaHitos(mTodo);
+    pintaPignoracion();
     pintaProyeccion();
     pintaTabla();
     pintaSegm($("#segRango"), RANGOS, estado.rango, id => { estado.rango = id; pintaPatrimonio(); });
@@ -795,7 +861,7 @@
       const b = document.createElement("button");
       b.style.setProperty("--c", color(x));
       b.setAttribute("aria-pressed", String(x.id === estado.fondo));
-      b.innerHTML = `<i></i>${x.corto || x.nombre}`;
+      b.innerHTML = `<i></i>${x.corto || x.nombre}${bloqueo(x)}`;
       b.onclick = () => { estado.fondo = x.id; pintaFondos(); };
       $("#selFondo").appendChild(b);
     });
@@ -823,6 +889,8 @@
       ["Fuente del precio", p.fuenteTexto || p.fuentePrecio],
       ["Plusvalía ya materializada", p.realizado ? G.fmtEur(p.realizado) : null],
       ["Peso en el patrimonio", p.peso != null ? G.fmtPct(p.peso, 1) : null],
+      ["Pignorado en", p.pignoradoEn && p.pignoradoEn.length
+        ? "🔒 " + esc(p.pignoradoEn.map(x => x.nombre).join(", ")) + " · no se puede vender" : null],
     ].filter(c => c[0] && c[1]);
 
     const hayVL = !!(p.navSerie && p.navSerie.some(v => v));
@@ -1191,6 +1259,11 @@
   $("#mesPrev").onclick = () => { estado.mes = Math.max(0, estado.mes - 1); pintaMes(); };
   $("#mesNext").onclick = () => { estado.mes = Math.min(D.resumenMensual.length - 1, estado.mes + 1); pintaMes(); };
   ["rAnos", "rRent", "rApor"].forEach(id => $("#" + id).addEventListener("input", pintaProyeccion));
+  $("#btnGestionPig").onclick = () => {
+    try { localStorage.setItem("patrimonio.editor", "pignoraciones"); } catch (e) { /* da igual */ }
+    irA("datos");
+    if (window.Editor && window.Editor.vista) window.Editor.vista("pignoraciones");
+  };
   document.querySelectorAll("#segModoProy button").forEach(b => {
     b.onclick = () => { proy.modo = b.dataset.m; proy.clave = ""; pintaProyeccion(); };
   });

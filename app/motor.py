@@ -20,6 +20,8 @@ import urllib.request
 import datetime as dt
 from collections import defaultdict
 
+from . import pignoracion
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -584,6 +586,12 @@ def construir(cfg, carpeta, descargar=True):
     SOLO_FALTAN = descargar == "faltan"
     AVISOS.clear()
     _COTIZACIONES.clear()
+
+    # Las pignoraciones aportan su deuda (y el dinero recibido) como productos derivados.
+    deudas, saldos_deuda = pignoracion.derivados(cfg, hoy())
+    if deudas:
+        cfg = dict(cfg, productos=list(cfg.get("productos", [])) + deudas,
+                   valoraciones=list(cfg.get("valoraciones", [])) + saldos_deuda)
 
     productos_cfg = [dict(p) for p in cfg.get("productos", [])]
     for p in productos_cfg:
@@ -1241,6 +1249,13 @@ def construir(cfg, carpeta, descargar=True):
                     "precioRef": r4(prod_v["nav"]), "btcRef": r2(ref),
                     "fechaRef": prod_v.get("navFecha") or fecha_extracto.isoformat()}
 
+    # Activos en garantía: se marcan para que se vea en todas partes que no se pueden vender.
+    en_garantia = pignoracion.marcas(cfg, fecha_extracto)
+    for p in productos + ser_otros:
+        if p["id"] in en_garantia:
+            p["pignoradoEn"] = en_garantia[p["id"]]
+    valores_hoy = {p["id"]: p["valor"] for p in productos + ser_otros}
+
     datos = {
         "generado": dt.datetime.now().replace(microsecond=0).isoformat(),
         "titular": cfg.get("titular", "Mi patrimonio"),
@@ -1275,6 +1290,7 @@ def construir(cfg, carpeta, descargar=True):
         "aportacionesMensuales": {"meses": meses, "porProducto": por_producto,
                                   "total": total_mes},
         "objetivo": cfg.get("objetivo"),
+        "pignoraciones": pignoracion.resumen(cfg, valores_hoy, fecha_extracto),
         "comisiones": comisiones,
         "rentabilidadAnual": rent_anual,
         "resumenMensual": resumen_mensual,

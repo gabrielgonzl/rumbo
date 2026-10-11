@@ -47,6 +47,7 @@ Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil
 - **Cifras honestas**: aportado, plusvalía, **TIR** (la rentabilidad real de tu dinero), rentabilidad por año, peor caída, racha de aportaciones…
 - **Comparación con un indexado**: con tus mismas aportaciones, ¿cuánto tendrías en el MSCI World, el S&P 500 o una cartera 60/40?
 - **«Si sigo así…» con precios objetivo**: proyecta a N años con una rentabilidad global, con el precio que crees que tendrá cada activo, o mixto (los activos sin objetivo usan la media de los que sí lo tienen). La aportación mensual va aparte y no se atribuye a ningún activo.
+- **Pignoraciones**: anota el préstamo con garantía de tus fondos o acciones (importando el cuadro de amortización de tu broker). Marca los activos bloqueados, resta la deuda de tu patrimonio, calcula el coste real y el margen frente a una caída, y permite liquidarla.
 - **Importación de golpe**: el CSV de MyInvestor, una plantilla de Excel o el extracto de cualquier banco convertido con una IA gratuita.
 - **Nunca tocas un archivo a mano**: todo se hace con formularios, con validación y mensajes en castellano llano.
 - **Copias de seguridad automáticas** y exportación del panel a una página web (con opción de **ocultar los importes**).

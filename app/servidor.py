@@ -184,9 +184,9 @@ def api_buscar():
 
 
 GUARDAR = {"productos": almacen.guarda_producto, "movimientos": almacen.guarda_movimiento,
-           "valoraciones": almacen.guarda_valoracion}
+           "valoraciones": almacen.guarda_valoracion, "pignoraciones": almacen.guarda_pignoracion}
 BORRAR = {"productos": almacen.borra_producto, "movimientos": almacen.borra_movimiento,
-          "valoraciones": almacen.borra_valoracion}
+          "valoraciones": almacen.borra_valoracion, "pignoraciones": almacen.borra_pignoracion}
 AVISO_DEMO = ("Estás viendo la cartera de ejemplo. Pulsa «Empezar con mis datos» "
               "para crear la tuya y poder guardar cambios.")
 
@@ -231,6 +231,29 @@ def api_borrar(coleccion, ident):
     if coleccion not in BORRAR:
         return jsonify(ok=False, errores=["No sé borrar eso."]), 404
     return cambia(lambda cfg: BORRAR[coleccion](cfg, ident))
+
+
+@app.post("/api/pignoraciones/cuadro")
+def api_pignoraciones_cuadro():
+    """Lee el cuadro de amortización que da el broker (Excel o CSV) y devuelve los datos para
+    rellenar el formulario. No guarda nada."""
+    f = request.files.get("archivo")
+    if not f:
+        return jsonify(ok=False, errores=["Elige el archivo del cuadro de amortización (Excel o CSV)."]), 400
+    datos, error = importar.leer_cuadro(f.filename, f.read())
+    if error:
+        return jsonify(ok=False, errores=[error]), 400
+    return jsonify(ok=True, **datos)
+
+
+@app.post("/api/pignoraciones/<pid>/liquidar")
+def api_pignoracion_liquidar(pid):
+    return cambia(lambda cfg: almacen.liquida_pignoracion(cfg, pid, request.get_json(silent=True) or {}))
+
+
+@app.post("/api/pignoraciones/<pid>/reabrir")
+def api_pignoracion_reabrir(pid):
+    return cambia(lambda cfg: almacen.reabre_pignoracion(cfg, pid))
 
 
 @app.post("/api/repartir-colores")

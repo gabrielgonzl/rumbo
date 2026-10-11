@@ -12,6 +12,7 @@ import os
 import re
 import unicodedata
 
+from . import pignoracion
 from .motor import TIPOS, FUENTES, num_es
 
 COPIAS_MAX = 20
@@ -21,7 +22,7 @@ SOLO_SALDO = ("efectivo", "deuda")   # tipos que se siguen solo con saldos anota
 
 CARTERA_VACIA = {
     "version": 1, "titular": "Mi patrimonio",
-    "productos": [], "movimientos": [], "valoraciones": [],
+    "productos": [], "movimientos": [], "valoraciones": [], "pignoraciones": [],
     "comparador": [{"id": "real", "nombre": "Mi cartera real", "real": True}],
     "hitos": [10000, 25000, 50000, 100000, 250000, 500000, 1000000],
     "objetivo": {"activo": True, "importe": 100000, "etiqueta": "Próximo objetivo"},
@@ -255,6 +256,11 @@ def guarda_movimiento(cfg, datos):
         if unidades > tenias + 1e-6:
             errores.append(f"El {fmt_fecha(f)} solo tenías {fmt_num(tenias)} unidades de "
                            f"«{p.get('corto') or p['nombre']}» y estás vendiendo {fmt_num(unidades)}.")
+    if not errores and tipo == "venta":
+        bloquea = pignoracion.bloquea_venta(cfg, p["id"], f)
+        if bloquea:
+            errores.append(f"«{p.get('corto') or p['nombre']}» está pignorado en «{bloquea}»: no se puede vender "
+                           "hasta liquidar la pignoración (hazlo en Mis datos → Pignoraciones).")
     if errores:
         raise ErrorValidacion(errores)
 
@@ -318,3 +324,138 @@ def borra_valoracion(cfg, vid):
     cfg["valoraciones"] = [v for v in cfg.get("valoraciones", []) if v.get("id") != vid]
     if len(cfg["valoraciones"]) == antes:
         raise ErrorValidacion(["Ese valor ya no existe."])
+
+
+# ---------------------------------------------------------------- pignoraciones
+
+def _fecha_libre(valor, etiqueta, errores, obligatorio=True):
+    """Como fecha(), pero admite fechas futuras (el primer pago o el cuadro lo son)."""
+    if valor is None or not str(valor).strip():
+        if obligatorio:
+            errores.append(f"Falta {etiqueta}.")
+        return None
+    try:
+        return dt.date.fromisoformat(str(valor)[:10]).isoformat()
+    except ValueError:
+        errores.append(f"{etiqueta.capitalize()} no es una fecha válida.")
+        return None
+
+
+def _valida_cuadro(cuadro, errores):
+    if not isinstance(cuadro, list) or not cuadro:
+        return None
+    filas = []
+    for i, r in enumerate(cuadro, start=1):
+        try:
+            f = dt.date.fromisoformat(str(r["fecha"])[:10]).isoformat()
+            filas.append({"fecha": f, "cuota": round(float(r["cuota"]), 2),
+                          "intereses": round(float(r["intereses"]), 2),
+                          "amortizado": round(float(r["amortizado"]), 2),
+                          "pendiente": round(float(r["pendiente"]), 2)})
+        except (KeyError, TypeError, ValueError):
+            errores.append(f"La fila {i} del cuadro de amortización no es válida.")
+            return None
+    filas.sort(key=lambda r: r["fecha"])
+    return filas
+
+
+def guarda_pignoracion(cfg, datos):
+    """Crea o actualiza una pignoración (préstamo con garantía de activos)."""
+    errores = []
+    nombre = texto(datos.get("nombre"))
+    if not nombre:
+        errores.append("Ponle un nombre a la pignoración (por ejemplo, «Préstamo con mi cartera»).")
+    activos = [a for a in (datos.get("activos") or []) if isinstance(a, str)]
+    desconocidos = [a for a in activos if not producto(cfg, a)]
+    if not activos:
+        errores.append("Marca qué activos has pignorado.")
+    if desconocidos:
+        errores.append("Hay activos que ya no existen: " + ", ".join(desconocidos))
+    principal = numero(datos.get("principal"), "el dinero recibido", errores, mayor_que=0)
+    f = _fecha_libre(datos.get("fecha"), "la fecha en que recibiste el dinero", errores)
+    interes = numero(datos.get("interes"), "el interés anual", errores, minimo=0)
+    cuadro = _valida_cuadro(datos.get("cuadro"), errores)
+    cuotas = numero(datos.get("cuotas"), "el número de cuotas", errores, obligatorio=not cuadro, mayor_que=0)
+    if cuotas is not None and cuotas != int(cuotas):
+        errores.append("El número de cuotas tiene que ser entero.")
+    cuota = numero(datos.get("cuota"), "la cuota mensual", errores, obligatorio=False, mayor_que=0)
+    primer = _fecha_libre(datos.get("primerPago"), "la fecha de la primera cuota", errores, obligatorio=not cuadro)
+    apertura = numero(datos.get("comisionApertura"), "la comisión de apertura", errores, obligatorio=False, minimo=0)
+    cancel = numero(datos.get("comisionCancelacion"), "la comisión de cancelación", errores,
+                    obligatorio=False, minimo=0)
+    ltv = numero(datos.get("ltvMax"), "el límite de préstamo sobre garantía", errores, obligatorio=False,
+                 mayor_que=0)
+    if ltv is not None and ltv > 100:
+        errores.append("El límite de préstamo sobre garantía va de 0 a 100 %.")
+    recibido = numero(datos.get("recibido"), "lo que te ingresaron", errores, obligatorio=False, mayor_que=0)
+    hasta = _fecha_libre(datos.get("efectivoHasta"), "la fecha hasta la que tuviste el dinero", errores,
+                         obligatorio=False)
+    if f and hasta and hasta < f:
+        errores.append("El dinero no puede haberse invertido antes de recibirlo.")
+    if errores:
+        raise ErrorValidacion(errores)
+
+    item = {"nombre": nombre, "entidad": texto(datos.get("entidad")), "activos": activos,
+            "principal": round(principal, 2), "fecha": f, "interes": interes,
+            "comisionApertura": round(apertura or 0, 2), "comisionCancelacion": cancel or 0,
+            "nota": texto(datos.get("nota"), 400)}
+    if cuadro:
+        item.update(cuadro=cuadro, cuotas=len(cuadro), primerPago=cuadro[0]["fecha"], cuota=cuadro[0]["cuota"])
+    else:
+        item.update(cuotas=int(cuotas), primerPago=primer)
+        if cuota:
+            item["cuota"] = round(cuota, 2)
+    if ltv is not None:
+        item["ltvMax"] = ltv
+    if recibido is not None:
+        item["recibido"] = round(recibido, 2)
+    if hasta:
+        item["efectivoHasta"] = hasta
+
+    lista = cfg.setdefault("pignoraciones", [])
+    existente = next((x for x in lista if x.get("id") == datos.get("id")), None) if datos.get("id") else None
+    if existente:
+        for k in ("estado", "fechaLiquidacion", "importeLiquidacion"):
+            if k in existente:
+                item[k] = existente[k]
+        existente.clear()
+        existente.update(id=datos["id"], **item)
+        return existente
+    item = {"id": siguiente_id(lista, "pg"), "estado": "activa", **item}
+    lista.append(item)
+    return item
+
+
+def borra_pignoracion(cfg, pid):
+    antes = len(cfg.get("pignoraciones", []))
+    cfg["pignoraciones"] = [x for x in cfg.get("pignoraciones", []) if x.get("id") != pid]
+    if len(cfg["pignoraciones"]) == antes:
+        raise ErrorValidacion(["Esa pignoración ya no existe."])
+
+
+def liquida_pignoracion(cfg, pid, datos):
+    """Marca la pignoración como liquidada: la deuda desaparece y los activos quedan libres."""
+    errores = []
+    x = next((x for x in cfg.get("pignoraciones", []) if x.get("id") == pid), None)
+    if not x:
+        raise ErrorValidacion(["Esa pignoración ya no existe."])
+    f = fecha(datos.get("fecha"), errores)
+    importe = numero(datos.get("importe"), "lo que pagaste para liquidarla", errores, obligatorio=False, minimo=0)
+    if f and f < x["fecha"]:
+        errores.append("No se puede liquidar antes de haberla recibido.")
+    if errores:
+        raise ErrorValidacion(errores)
+    x.update(estado="liquidada", fechaLiquidacion=f)
+    if importe is not None:
+        x["importeLiquidacion"] = round(importe, 2)
+    return x
+
+
+def reabre_pignoracion(cfg, pid):
+    x = next((x for x in cfg.get("pignoraciones", []) if x.get("id") == pid), None)
+    if not x:
+        raise ErrorValidacion(["Esa pignoración ya no existe."])
+    for k in ("fechaLiquidacion", "importeLiquidacion"):
+        x.pop(k, None)
+    x["estado"] = "activa"
+    return x
