@@ -46,6 +46,7 @@ Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil
 - **Buscador por ISIN, ticker o nombre** que comprueba que el producto tiene precio antes de guardarlo y rellena solo la comisión (TER), el riesgo y la categoría.
 - **Cifras honestas**: aportado, plusvalía, **TIR** (la rentabilidad real de tu dinero), rentabilidad por año, peor caída, racha de aportaciones…
 - **Comparación con un indexado**: con tus mismas aportaciones, ¿cuánto tendrías en el MSCI World, el S&P 500 o una cartera 60/40?
+- **«Si sigo así…» con precios objetivo**: proyecta a N años con una rentabilidad global, con el precio que crees que tendrá cada activo, o mixto (los activos sin objetivo usan la media de los que sí lo tienen). La aportación mensual va aparte y no se atribuye a ningún activo.
 - **Importación de golpe**: el CSV de MyInvestor, una plantilla de Excel o el extracto de cualquier banco convertido con una IA gratuita.
 - **Nunca tocas un archivo a mano**: todo se hace con formularios, con validación y mensajes en castellano llano.
 - **Copias de seguridad automáticas** y exportación del panel a una página web (con opción de **ocultar los importes**).
