@@ -218,7 +218,7 @@ body.video .app{display:block}
 @media (min-width:1360px){
   #riesgo{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
   #riesgo > .tarjeta{margin-top:0!important}
-  #riesgo > .tarjeta[aria-labelledby="concTit"]{grid-column:2;grid-row:1 / span 3}
+  #riesgo > .tarjeta[aria-labelledby="concTit"],#riesgo > .tarjeta[aria-labelledby="transpTit"]{grid-column:2}
   #riesgo > .tarjeta:not([aria-labelledby="concTit"]){grid-column:1}
 }
 /* Planificación: meta y asignación a un lado, proyección al otro */

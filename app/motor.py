@@ -20,7 +20,7 @@ import urllib.request
 import datetime as dt
 from collections import defaultdict
 
-from . import pignoracion
+from . import exposicion, pignoracion
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -1296,6 +1296,12 @@ def construir(cfg, carpeta, descargar=True):
         if p["id"] in en_garantia:
             p["pignoradoEn"] = en_garantia[p["id"]]
     valores_hoy = {p["id"]: p["valor"] for p in productos + ser_otros}
+    # Transparencia: lo que hay dentro de los fondos (mayores posiciones), agregado por empresa.
+    try:
+        transparencia = exposicion.calcula(productos, carpeta, descargar)
+    except Exception as e:      # un fallo de red o de formato nunca debe tumbar el panel
+        aviso(f"No he podido calcular la transparencia de los fondos: {e}")
+        transparencia = None
 
     datos = {
         "generado": dt.datetime.now().replace(microsecond=0).isoformat(),
@@ -1338,6 +1344,7 @@ def construir(cfg, carpeta, descargar=True):
                                   "total": total_mes},
         "objetivo": cfg.get("objetivo"),
         "asignacion": cfg.get("asignacion") or {"objetivos": {}},
+        "transparencia": transparencia,
         "pignoraciones": pignoracion.resumen(cfg, valores_hoy, fecha_extracto),
         "comisiones": comisiones,
         "rentabilidadAnual": rent_anual,

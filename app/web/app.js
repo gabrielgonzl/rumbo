@@ -1030,6 +1030,28 @@
     </section>`;
   }
 
+  function tarjetaTransparencia() {
+    const T = D.transparencia;
+    if (!T || !T.items || !T.items.length) return "";
+    const top = T.items.slice(0, 10);
+    const UMBRAL = 0.05;
+    const cub = (T.cobertura || []).length;
+    return `<section class="tarjeta" style="margin-top:16px" aria-labelledby="transpTit">
+      <header><h2 id="transpTit">Qué tienes de verdad dentro</h2>
+        <span class="subt">Mayores posiciones de tus fondos, sumadas, más tus acciones directas</span></header>
+      <div class="conc">${top.map(i => `<div class="f ${i.peso > UMBRAL ? "alta" : ""}" title="${esc(i.fuentes.map(f => f.producto + ": " + G.fmtEur(f.valor, 0) + (f.directa ? " (directa)" : "")).join(" · "))}">
+          <span>${esc(i.nombre)}${i.pais ? ` <small class="subt">${esc(i.pais)}</small>` : ""}</span>
+          <span class="b"><i style="width:${Math.min(100, i.peso * 100 * 3).toFixed(1)}%"></i></span>
+          <span class="p">${G.fmtPct(i.peso, 1)}</span></div>`).join("")}</div>
+      <p class="subt" style="margin-top:12px">Es un <b>mínimo</b>: de cada fondo solo se conocen sus mayores posiciones
+        (datos de ${cub} ${cub === 1 ? "fondo" : "fondos"}${T.fecha ? ", a " + G.fmtFecha(T.fecha) : ""}).
+        ${(T.sinDatos || []).length ? "Sin datos: " + esc(T.sinDatos.slice(0, 6).join(", ")) + (T.sinDatos.length > 6 ? "…" : "") + "." : ""}
+        ${(T.cobertura || []).filter(c => c.cubierto < 10).length ? "Casi sin datos (menos del 10 % del fondo): " +
+          esc(T.cobertura.filter(c => c.cubierto < 10).map(c => c.nombre).join(", ")) + "." : ""}
+        Pasa el ratón por una fila para ver de dónde sale.</p>
+    </section>`;
+  }
+
   function pintaRiesgo() {
     const cont = $("#riesgo");
     if (!cont) return;
@@ -1041,6 +1063,7 @@
     cont.innerHTML = `
       ${lista.length ? lista.map(tarjetaPrestamo).join("") : `<section class="tarjeta"><header><h2>Préstamos con garantía</h2></header>
         <p class="vacio">${window.ESTATICO ? "Esta versión exportada no incluye los préstamos." : "No tienes ninguna pignoración anotada. Si pignoras activos para pedir un préstamo, anótala en Datos → Pignoraciones y aquí verás tu margen, el estrés de mercado y el calendario."}</p></section>`}
+      ${tarjetaTransparencia()}
       <section class="tarjeta" style="margin-top:16px" aria-labelledby="concTit">
         <header><h2 id="concTit">Concentración</h2><span class="subt">Peso de cada posición sobre lo que tienes invertido (sin efectivo)</span></header>
         <div class="conc">${top.map(t => `<div class="f ${t.peso > UMBRAL ? "alta" : ""}"><span>${esc(t.p.corto || t.p.nombre)}</span>
