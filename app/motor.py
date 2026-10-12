@@ -1068,6 +1068,23 @@ def construir(cfg, carpeta, descargar=True):
         if pico_i > 0 and v / pico_i - 1 < dd_twr:
             dd_twr, dd_twr_fecha = v / pico_i - 1, eje_iso[i]
 
+    # Caída del MERCADO desde el máximo, sin contar lo aportado desde entonces: se compara la ganancia
+    # acumulada (valor − aportado) con la del mejor momento, sobre el valor que había en ese momento.
+    # No usa el índice TWR (con carteras que empiezan en pocos euros se dispara) ni se ve afectada
+    # por aportar, vender o endeudarse. Solo se miran máximos con una cartera ya significativa.
+    v_inv = [sum((p["serie"][i] or 0) for p in inv) for i in range(n)]
+    a_inv = [sum((p["serieAportado"][i] or 0) for p in inv) for i in range(n)]
+    minimo_sig = max(500.0, 0.10 * (max(v_inv) if v_inv else 0))
+    pnl_pico, v_pico, dd_mer, dd_mer_fecha = None, 0.0, 0.0, None
+    for i in range(n):
+        g = v_inv[i] - a_inv[i]
+        if v_inv[i] >= minimo_sig and (pnl_pico is None or g > pnl_pico):
+            pnl_pico, v_pico = g, v_inv[i]
+        elif pnl_pico is not None and v_pico > 0:
+            c = (g - pnl_pico) / v_pico
+            if c < dd_mer:
+                dd_mer, dd_mer_fecha = c, eje_iso[i]
+
     # TIR sobre tu capital propio: el préstamo entra como dinero recibido y sus cuotas como salidas,
     # y al final solo vale lo que queda tras pagar la deuda pendiente.
     f_prest = pignoracion.flujos(cfg, fecha_extracto)
@@ -1312,6 +1329,8 @@ def construir(cfg, carpeta, descargar=True):
             "caidaMaximaFecha": dd_fecha,
             "caidaMaximaTwr": r4(dd_twr),
             "caidaMaximaTwrFecha": dd_twr_fecha,
+            "caidaMaximaMercado": r4(dd_mer),
+            "caidaMaximaMercadoFecha": dd_mer_fecha,
             "tirCapitalPropio": tir_propia,
             "deudaPignoraciones": deuda_pend,
         },

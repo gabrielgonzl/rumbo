@@ -188,3 +188,42 @@ body.video .app{display:block}
   .segm button,.btn,td.acc button{min-height:36px}
 }
 @media (max-width:1180px){table.tabPos .c-clase{display:none}}
+
+/* ============================================================
+   Pantallas anchas: aprovechar el ancho en lugar de dejarlo vacío
+   ============================================================ */
+@media (min-width:1200px){
+  .contenido .env{max-width:1840px;margin:0 auto;padding-left:36px;padding-right:36px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(176px,1fr))}
+}
+/* Resumen: columna principal + columna de lo importante (alertas, neto y «Este mes») */
+@media (min-width:1360px){
+  #tab-patrimonio:not([hidden]){
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,460px);column-gap:28px;align-items:start;
+  }
+  #tab-patrimonio > *{grid-column:1;min-width:0}
+  #tab-patrimonio > #cockpit{grid-column:2;grid-row:1 / span 4;margin-top:34px;position:sticky;top:76px}
+  #tab-patrimonio > #cockpit .cockGrid{grid-template-columns:1fr}
+  #tab-patrimonio > .rejilla2,#tab-patrimonio > section:last-of-type{grid-column:1 / -1}
+  #tab-patrimonio .hCifra{font-size:clamp(56px,5vw,88px)}
+}
+/* Posiciones y Rendimiento: tablas y gráficas con más aire horizontal */
+@media (min-width:1360px){
+  #tab-rendimiento:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  #tab-rendimiento > .tarjeta{margin-top:0!important}
+  #tab-rendimiento > #seccionComparar{grid-column:1 / -1;order:3}   /* anual y comisiones, lado a lado */
+  #tab-mes .mesTarjetas{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+/* Riesgo y deuda: préstamo a la izquierda, concentración a la derecha */
+@media (min-width:1360px){
+  #riesgo{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+  #riesgo > .tarjeta{margin-top:0!important}
+  #riesgo > .tarjeta[aria-labelledby="concTit"]{grid-column:2;grid-row:1 / span 3;position:sticky;top:76px}
+  #riesgo > .tarjeta:not([aria-labelledby="concTit"]){grid-column:1}
+}
+/* Planificación: meta y asignación a un lado, proyección al otro */
+@media (min-width:1360px){
+  #tab-plan:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  #tab-plan > .tarjeta{margin-top:0!important}
+  #tab-plan > #seccionProyeccion{grid-column:2;grid-row:1 / span 2}
+}
