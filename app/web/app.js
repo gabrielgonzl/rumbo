@@ -135,9 +135,10 @@
       : [mezcla(base, "#fcfcfb", 0.58), base, mezcla(base, "#000000", 0.32)];
   }
 
-  // Los derivados de una pignoración (p. ej. el dinero recibido, ya invertido) no estorban a 0 €.
-  const TODOS = () => D.productos.concat(D.otrosActivos || [], D.pasivos || [])
-    .filter(p => !(p.derivado && !p.valor));
+  const TODOS = () => D.productos.concat(D.otrosActivos || [], D.pasivos || []);
+  // Un derivado de pignoración ya a 0 € (p. ej. el dinero recibido, ya invertido) no se enseña en las
+  // listas, pero sigue contando en los cálculos: si no, la deuda quedaría sin su contrapartida.
+  const enseñable = p => !(p.derivado && !p.valor);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
     c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   // Candado de los activos en garantía: no se pueden vender mientras dure la pignoración.
@@ -473,7 +474,7 @@
   function pintaChips() {
     const cont = $("#chips");
     cont.innerHTML = "";
-    TODOS().forEach(p => {
+    TODOS().filter(enseñable).forEach(p => {
       const oculto = estado.ocultos.has(p.id);
       const b = document.createElement("button");
       b.className = "chip" + (oculto ? " apagado" : "");
@@ -852,7 +853,7 @@
      PESTAÑA 3 · FONDOS
      ================================================================ */
   function pintaFondos() {
-    const lista = TODOS();
+    const lista = TODOS().filter(enseñable);
     if (!estado.fondo || !buscaProd(estado.fondo)) estado.fondo = lista[0].id;
     const p = buscaProd(estado.fondo);
 
