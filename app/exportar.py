@@ -73,6 +73,7 @@ def sin_importes(datos):
     # Deuda, cuota, garantía y colchón de un préstamo permitirían deducir el factor de escala:
     # en la web sin importes no viaja ninguna pignoración.
     out.pop("pignoraciones", None)
+    out.pop("fiscal", None)       # ventas, costes y cuotas: importes absolutos sin escalar
     if out.get("transparencia"):
         out["transparencia"].pop("total", None)       # el total absoluto delataría el factor de escala
     if out.get("vivo"):

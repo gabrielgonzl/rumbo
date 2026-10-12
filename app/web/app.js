@@ -1052,6 +1052,87 @@
     </section>`;
   }
 
+  /* ================================================================
+     FISCALIDAD · orientación del ahorro (IRPF)
+     ================================================================ */
+  const fis = { ano: null };
+
+  function pintaFiscal() {
+    const cont = $("#fiscal");
+    if (!cont) return;
+    const F = D.fiscal;
+    if (!F || window.OCULTAR_IMPORTES) {
+      cont.innerHTML = `<section class="tarjeta"><header><h2>Fiscalidad</h2></header>
+        <p class="vacio">${window.ESTATICO ? "Esta versión exportada no incluye la fiscalidad." : "Todavía no hay ventas ni dividendos anotados de los que calcular nada."}</p></section>`;
+      return;
+    }
+    const anos = F.anos.map(a => a.ano);
+    if (!anos.length) {
+      cont.innerHTML = `<section class="tarjeta"><header><h2>Fiscalidad</h2></header>
+        <p class="vacio">Aún no has anotado ninguna venta ni dividendo: no hay nada que declarar de momento.</p></section>${tarjeta720(F)}`;
+      return;
+    }
+    if (fis.ano == null || !anos.includes(fis.ano)) fis.ano = anos[anos.length - 1];
+    const a = F.anos.find(x => x.ano === fis.ano);
+    const kpi = (e, v, n, cl) => `<div class="kpi"><div class="e">${e}</div><div class="v ${cl || ""}">${v}</div>${n ? `<div class="n">${n}</div>` : ""}</div>`;
+    const filas = a.ventas.map(v => `<tr class="${v.diferida ? "alto" : ""}">
+        <td>${G.fmtFecha(v.fecha)}</td><td>${esc(v.nombre)}</td>
+        <td>${v.reembolso ? "—" : G.nfNum.format(v.unidades)}</td>
+        <td>${v.reembolso ? "—" : G.fmtEur(v.importe)}</td><td>${v.reembolso ? "—" : G.fmtEur(v.coste)}</td>
+        <td class="${v.resultado >= 0 ? "pos" : "neg"}">${G.fmtEurSigno(v.resultado)}</td>
+        <td>${v.diferida ? `<span class="badge warn" title="Compraste valores homogéneos el ${G.fmtFecha(v.recompra)}, dentro del plazo de ${v.plazo}">Pérdida diferida · recompra ${G.fmtFecha(v.recompra)}</span>`
+          : v.reembolso ? '<span class="badge">Plusvalía de reembolso</span>' : v.resultado < 0 ? '<span class="badge ok">Computa</span>' : ""}</td></tr>`).join("");
+    cont.innerHTML = `
+      <div class="alerta warn" role="note">${ICO_ALERTA}<div><b>Orientativo, no es tu declaración.</b> ${esc(F.aviso)}</div></div>
+      <section class="tarjeta" style="margin-top:16px" aria-labelledby="fisTit">
+        <header><h2 id="fisTit">Ahorro ${a.ano}</h2><div class="sep"></div>
+          <div class="segm" id="segFiscalAno" role="group" aria-label="Año"></div></header>
+        <div class="riesgoGrid">
+          ${kpi("Ganancias", G.fmtEur(a.ganancias), "ventas con beneficio", "pos")}
+          ${kpi("Pérdidas que computan", G.fmtEur(a.perdidas), a.diferidas ? G.fmtEur(a.diferidas) + " diferidas por recompra" : "", a.perdidas ? "neg" : "")}
+          ${kpi("Dividendos e intereses", G.fmtEur(a.dividendos), "capital mobiliario")}
+          ${kpi("Compensado", G.fmtEur(a.arrastreUsado + a.compensadoCruzada), a.arrastreUsado ? G.fmtEur(a.arrastreUsado) + " de años anteriores" : "")}
+          ${kpi("Base del ahorro", G.fmtEur(a.base))}
+          ${kpi("Cuota estimada", G.fmtEur(a.cuota), a.tipoMedio != null ? "tipo medio " + G.fmtPct(a.tipoMedio, 1) : "sin cuota", a.cuota ? "neg" : "")}
+        </div>
+        ${a.tramos.length ? `<div class="tablaEnv"><table class="dt"><thead><tr><th>Tramo de la base</th><th>Tipo</th><th>Parte</th><th>Cuota</th></tr></thead>
+          <tbody>${a.tramos.map(t => `<tr><td>${G.fmtEur(t.desde, 0)} – ${t.hasta == null ? "en adelante" : G.fmtEur(t.hasta, 0)}</td><td>${G.fmtPct(t.tipo, 0)}</td><td>${G.fmtEur(t.parte)}</td><td>${G.fmtEur(t.cuota)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      </section>
+      <section class="tarjeta" style="margin-top:16px" aria-labelledby="fisVentas">
+        <header><h2 id="fisVentas">Ventas de ${a.ano}</h2><span class="subt">Primeras compras, primeras ventas (FIFO) por producto</span></header>
+        ${filas ? `<div class="tablaEnv"><table class="dt stress"><thead><tr><th>Fecha</th><th>Producto</th><th>Unidades</th><th>Importe</th><th>Coste</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>${filas}</tbody></table></div>`
+          : '<p class="vacio">No hay ventas anotadas este año.</p>'}
+        ${a.arrastrePendiente.length ? `<p class="subt" style="margin-top:12px"><b>Pérdidas por compensar</b> (caducan a los ${F.anosArrastre} años): ${
+          a.arrastrePendiente.map(x => `${G.fmtEur(x.importe)} de ${x.ano}`).join(" · ")}.</p>` : ""}
+      </section>
+      ${tarjeta720(F)}
+      <section class="tarjeta" style="margin-top:16px"><header><h2>Lo que esta pantalla no sabe</h2></header>
+        <ul class="notas"><li><b>Traspasos entre fondos:</b> no tributan y conservan coste y antigüedad; Rumbo los ve como venta y compra. Si has hecho alguno, el resultado de ese año no es fiable.</li>
+          <li><b>Retenciones y comunidad autónoma:</b> la escala del ahorro es estatal y la misma en todo el territorio común, pero no se descuentan retenciones.</li>
+          <li><b>Recompra:</b> el plazo es de 2 meses para valores cotizados (acciones, ETF) y de 1 año para los no cotizados (fondos). Se detecta por producto, sin mirar si el saldo posterior queda a cero.</li>
+          <li><b>Reembolsos importados de MyInvestor:</b> su CSV da la plusvalía pero no la fecha de venta; se cuenta en la fecha del lote, que puede no ser el año en que se vendió. Revísalo con tu extracto fiscal.</li>
+          <li><b>Divisas y gastos:</b> las comisiones que anotaste ya van en el importe; no se modelan gastos de custodia ni cambios de divisa.</li></ul>
+      </section>`;
+    pintaSegm($("#segFiscalAno"), anos.map(x => ({ id: x, et: String(x) })), fis.ano, id => { fis.ano = id; pintaFiscal(); });
+  }
+
+  function tarjeta720(F) {
+    const m = F.modelo720;
+    const cat = m.categorias;
+    return `<section class="tarjeta" style="margin-top:16px" aria-labelledby="t720">
+      <header><h2 id="t720">Modelos 720 y 721 · bienes en el extranjero</h2></header>
+      <p>Solo cuentan los bienes <b>custodiados fuera de España</b> a 31 de diciembre: más de ${G.fmtEur(m.umbral, 0)} en una categoría
+        (cuentas, valores, inmuebles), o en criptomonedas en conjunto. Marca cada producto en <b>Datos → Productos → «Dónde está custodiado»</b>.</p>
+      ${m.productosMarcados ? `<div class="riesgoGrid">
+          <div class="kpi"><div class="e">Valores en el extranjero</div><div class="v ${m.supera720 && cat.valores > m.umbral ? "neg" : ""}">${G.fmtEur(cat.valores, 0)}</div></div>
+          <div class="kpi"><div class="e">Cuentas en el extranjero</div><div class="v ${cat.cuentas > m.umbral ? "neg" : ""}">${G.fmtEur(cat.cuentas, 0)}</div></div>
+          <div class="kpi"><div class="e">Cripto en el extranjero</div><div class="v ${m.supera721 ? "neg" : ""}">${G.fmtEur(cat.cripto, 0)}</div></div></div>
+        <p>${m.supera720 || m.supera721 ? "<b class='neg'>Superas el umbral en alguna categoría:</b> podrías tener que presentar el modelo " + (m.supera720 ? "720" : "") + (m.supera720 && m.supera721 ? " y el " : "") + (m.supera721 ? "721" : "") + " entre el 1 de enero y el 31 de marzo."
+          : "Ninguna categoría supera el umbral con lo que has marcado."}</p>`
+        : '<p class="subt">No has marcado ningún producto como custodiado en el extranjero, así que no se calcula nada. Si todo está en brókers españoles, no tienes que presentarlos.</p>'}
+    </section>`;
+  }
+
   function pintaRiesgo() {
     const cont = $("#riesgo");
     if (!cont) return;
@@ -1617,6 +1698,7 @@
     else if (estado.tab === "fondos") pintaFondos();
     else if (estado.tab === "riesgo") pintaRiesgo();
     else if (estado.tab === "plan") { pintaMeta(); pintaAsignacion(); pintaProyeccion(); }
+    else if (estado.tab === "fiscal") pintaFiscal();
     else if (estado.tab === "rendimiento") pintaRendimiento();
     else if (estado.tab === "datos" && window.Editor) window.Editor.mostrar();
   }
@@ -1694,8 +1776,8 @@
       estado.ocultos = filtrando() ? new Set() : new Set(idsCorto());
       pintaPatrimonio();
     }
-    const n = "12345678".indexOf(e.key);
-    const tab = ["patrimonio", "fondos", "rendimiento", "riesgo", "mes", "plan", "datos", "ayuda"][n];
+    const n = "123456789".indexOf(e.key);
+    const tab = ["patrimonio", "fondos", "rendimiento", "riesgo", "mes", "plan", "fiscal", "datos", "ayuda"][n];
     if (n >= 0 && document.getElementById("tab-" + tab)) irA(tab);
   });
 

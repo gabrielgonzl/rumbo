@@ -155,7 +155,7 @@ def texto(v, maximo=200):
 # ---------------------------------------------------------------- productos
 
 CAMPOS_TEXTO = ("nombre", "corto", "identificador", "codigo", "entidad", "clase", "gestora",
-                "tipoDetalle", "respaldo", "respaldoMoneda", "vivo", "papel", "grupo")
+                "tipoDetalle", "respaldo", "respaldoMoneda", "vivo", "papel", "grupo", "custodia")
 
 
 def guarda_producto(cfg, datos):

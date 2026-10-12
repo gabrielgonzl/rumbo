@@ -82,8 +82,9 @@ body{min-height:100vh}
     gap:12px;font-size:14px;background:var(--sup2);border:1px solid var(--borde);min-height:44px;padding:10px 14px;
     text-align:left;
   }
-  .lateral.masAbierto button[data-tab="mes"]{bottom:calc(100% + 8px + 3*50px)}
-  .lateral.masAbierto button[data-tab="plan"]{bottom:calc(100% + 8px + 2*50px)}
+  .lateral.masAbierto button[data-tab="mes"]{bottom:calc(100% + 8px + 4*50px)}
+  .lateral.masAbierto button[data-tab="plan"]{bottom:calc(100% + 8px + 3*50px)}
+  .lateral.masAbierto button[data-tab="fiscal"]{bottom:calc(100% + 8px + 2*50px)}
   .lateral.masAbierto button[data-tab="datos"]{bottom:calc(100% + 8px + 50px)}
   .lateral.masAbierto button[data-tab="ayuda"]{bottom:calc(100% + 8px)}
 }
