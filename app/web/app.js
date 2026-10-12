@@ -660,6 +660,64 @@
     }
   }
 
+  /* ---- ¿Y si el mercado se mueve? Montecarlo con el riesgo del préstamo ---- */
+  const mc = { volP: null, volG: null };
+
+  function pintaMontecarlo() {
+    const sec = $("#seccionMC");
+    if (!sec) return;
+    const anos = +$("#rAnos").value, mu = +$("#rRent").value / 100, apor = +$("#rApor").value;
+    // Volatilidad histórica de tu cartera (del índice de rentabilidad), acotada a un rango razonable.
+    if (mc.volP == null) {
+      const h = Montecarlo.volatilidad(D.indiceCartera || []);
+      mc.volP = Math.round(Math.min(35, Math.max(8, (h || 0.16) * 100)));
+      mc.volG = Math.min(mc.volP, 18);
+      $("#rVolP").value = mc.volP; $("#rVolG").value = mc.volG;
+    }
+    mc.volP = +$("#rVolP").value; mc.volG = +$("#rVolG").value;
+    $("#vVolP").textContent = mc.volP + " %"; $("#vVolG").textContent = mc.volG + " %";
+
+    const { activos } = activosProyeccion();
+    const cartera = activos.reduce((a, x) => a + x.valor, 0);
+    const prest = (D.pignoraciones || []).filter(x => x.estado === "activa" && !estado.ocultos.has("pignoracion_" + x.id));
+    const garantia = prest.reduce((a, x) => a + (x.garantia || 0), 0);
+    const ltv = prest.length && prest[0].ltvMax ? prest[0].ltvMax / 100 : null;
+    const meses = Math.round(anos * 12);
+    const deuda = deudaMensual(meses);
+    const r = Montecarlo.simula({ cartera, garantia, deuda, aportacion: apor, anos, mu, sigma: mc.volP / 100,
+      sigmaGarantia: mc.volG / 100, ltvMax: ltv, n: 1500, semilla: 20261012 });
+
+    const base = new Date(D.fechaExtracto + "T00:00:00");
+    const fechas = r.p50.map((_, i) => {
+      const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
+    });
+    G.multiLinea($("#grafMC"), {
+      fechas, alto: 260,
+      series: [
+        { nombre: "Bueno (1 de cada 10 acaba por encima)", valores: r.p90.map(Math.round), color: G.css("--s3") },
+        { nombre: "Típico (mediana)", valores: r.p50.map(Math.round), color: G.css("--s1"), destacado: true },
+        { nombre: "Malo (1 de cada 10 acaba por debajo)", valores: r.p10.map(Math.round), color: G.css("--s2") },
+      ],
+      formatoY: v => G.fmtEurCorto(v), formatoValor: v => G.fmtEur(v, 0),
+    });
+
+    const partes = [];
+    partes.push(`En ${anos} años, tu patrimonio neto acabaría <b class="fuerte">entre ${G.fmtEur(r.p10[meses], 0)} y ${G.fmtEur(r.p90[meses], 0)}</b>
+      en 8 de cada 10 futuros; el típico, ${G.fmtEur(r.p50[meses], 0)}.`);
+    if (r.probDeudaMayor != null) {
+      const pl = r.probLimite;
+      partes.push(pl != null
+        ? `Probabilidad de que el préstamo toque el límite del ${String(prest[0].ltvMax).replace(".", ",")} % en algún momento:
+           <b class="${pl > 0.25 ? "neg" : "fuerte"}">${G.fmtPct(pl, 0)}</b>.`
+        : `Aún no has indicado el límite de tu entidad: no puedo calcular cuándo te pedirían más garantía.`);
+      partes.push(`Probabilidad de que la deuda llegue a superar a la garantía: <b class="${r.probDeudaMayor > 0.1 ? "neg" : "fuerte"}">${G.fmtPct(r.probDeudaMayor, 0)}</b>.`);
+    }
+    $("#mcResumen").innerHTML = partes.join('<span style="color:var(--tinta3)"> · </span>');
+    $("#mcNota").textContent = "Supone que la cartera y la garantía suben y bajan a la vez y que los rendimientos siguen una campana " +
+      "con la rentabilidad y volatilidad de arriba. Los mercados reales tienen caídas más bruscas: tómalo como orden de magnitud, no como pronóstico.";
+  }
+
   /* Deuda pendiente de los préstamos al final de cada mes de la proyección (según su cuadro). */
   function deudaMensual(meses) {
     const prest = (D.pignoraciones || []).filter(x => x.estado === "activa" && !estado.ocultos.has("pignoracion_" + x.id));
@@ -1697,7 +1755,7 @@
     else if (estado.tab === "mes") pintaMes();
     else if (estado.tab === "fondos") pintaFondos();
     else if (estado.tab === "riesgo") pintaRiesgo();
-    else if (estado.tab === "plan") { pintaMeta(); pintaAsignacion(); pintaProyeccion(); }
+    else if (estado.tab === "plan") { pintaMeta(); pintaAsignacion(); pintaProyeccion(); pintaMontecarlo(); }
     else if (estado.tab === "fiscal") pintaFiscal();
     else if (estado.tab === "rendimiento") pintaRendimiento();
     else if (estado.tab === "datos" && window.Editor) window.Editor.mostrar();
@@ -1756,7 +1814,8 @@
   $("#mesSel").onchange = e => { estado.mes = +e.target.value; pintaMes(); };
   $("#mesPrev").onclick = () => { estado.mes = Math.max(0, estado.mes - 1); pintaMes(); };
   $("#mesNext").onclick = () => { estado.mes = Math.min(D.resumenMensual.length - 1, estado.mes + 1); pintaMes(); };
-  ["rAnos", "rRent", "rApor"].forEach(id => $("#" + id).addEventListener("input", pintaProyeccion));
+  ["rAnos", "rRent", "rApor"].forEach(id => $("#" + id).addEventListener("input", () => { pintaProyeccion(); pintaMontecarlo(); }));
+  ["rVolP", "rVolG"].forEach(id => $("#" + id).addEventListener("input", pintaMontecarlo));
   document.querySelectorAll("#segModoProy button").forEach(b => {
     b.onclick = () => { proy.modo = b.dataset.m; proy.clave = ""; pintaProyeccion(); };
   });

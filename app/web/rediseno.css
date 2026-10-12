@@ -226,7 +226,8 @@ body.video .app{display:block}
 @media (min-width:1360px){
   #tab-plan:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
   #tab-plan > .tarjeta{margin-top:0!important}
-  #tab-plan > #seccionProyeccion{grid-column:2;grid-row:1 / span 2}
+  #tab-plan > #seccionProyeccion{grid-column:2;grid-row:1}
+  #tab-plan > #seccionMC{grid-column:2;grid-row:2}
 }
 
 /* ============================================================

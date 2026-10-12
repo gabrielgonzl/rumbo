@@ -245,6 +245,18 @@
     <div class="hSub" id="proyResumen" style="margin-top:14px"></div>
   </section>
 
+  <section class="tarjeta" id="seccionMC" style="margin-top:16px" aria-labelledby="mcTit">
+    <header><h2 id="mcTit">¿Y si el mercado se mueve?</h2>
+      <span class="subt">Simulación de 1.500 futuros posibles (Montecarlo) · orientativa</span></header>
+    <div class="mandos">
+      <div class="mando"><label>Volatilidad de la cartera <b id="vVolP">—</b></label><input type="range" id="rVolP" min="5" max="40" step="1" value="16"></div>
+      <div class="mando"><label>Volatilidad de la garantía <b id="vVolG">—</b></label><input type="range" id="rVolG" min="5" max="40" step="1" value="16"></div>
+    </div>
+    <div id="mcResumen" class="hSub" style="margin-bottom:12px"></div>
+    <div class="envGraf" id="grafMC"></div>
+    <p class="subt" id="mcNota" style="margin-top:10px"></p>
+  </section>
+
 </div>
 
 <!--solo-app--><div class="panel" id="tab-datos" role="tabpanel" aria-labelledby="t-datos" hidden><div id="editor"></div></div><!--/solo-app-->
@@ -338,7 +350,7 @@
   // Con file:// no se puede anadir "?v=": algunos navegadores no encuentran
   // el archivo. Ahi basta con la revalidacion por fecha de modificacion.
   var sello = location.protocol === "file:" ? "" : "?v=" + Date.now();
-  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "metricas.js", "asignacion.js", "app.js", "editor.js"].forEach(function (archivo) {
+  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "metricas.js", "asignacion.js", "montecarlo.js", "app.js", "editor.js"].forEach(function (archivo) {
     var s = document.createElement("script");
     s.src = archivo + sello;
     s.async = false;
