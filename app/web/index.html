@@ -207,7 +207,17 @@
 
 <!-- ==================================================== PLANIFICACIÓN -->
 <div class="panel" id="tab-plan" role="tabpanel" aria-labelledby="t-plan" hidden>
-  <section class="tarjeta" id="seccionProyeccion" style="margin-top:24px">
+  <section class="tarjeta" id="seccionMeta" style="margin-top:24px" aria-labelledby="metaTit">
+    <header><h2 id="metaTit">Mi meta</h2><span class="subt" id="metaSubt"></span></header>
+    <div id="metaCuerpo"></div>
+  </section>
+
+  <section class="tarjeta" id="seccionAsig" style="margin-top:16px" aria-labelledby="asigTit">
+    <header><h2 id="asigTit">Asignación objetivo</h2><span class="subt">Dónde poner tu aportación del mes, sin vender nada</span></header>
+    <div id="asigCuerpo"></div>
+  </section>
+
+  <section class="tarjeta" id="seccionProyeccion" style="margin-top:16px">
     <header>
       <h2>Si sigo así…</h2>
       <span class="subt" id="proySubt">Orientativa · sin impuestos ni inflación</span>
@@ -322,7 +332,7 @@
   // Con file:// no se puede anadir "?v=": algunos navegadores no encuentran
   // el archivo. Ahi basta con la revalidacion por fecha de modificacion.
   var sello = location.protocol === "file:" ? "" : "?v=" + Date.now();
-  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "metricas.js", "app.js", "editor.js"].forEach(function (archivo) {
+  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "metricas.js", "asignacion.js", "app.js", "editor.js"].forEach(function (archivo) {
     var s = document.createElement("script");
     s.src = archivo + sello;
     s.async = false;

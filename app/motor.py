@@ -1318,6 +1318,7 @@ def construir(cfg, carpeta, descargar=True):
         "aportacionesMensuales": {"meses": meses, "porProducto": por_producto,
                                   "total": total_mes},
         "objetivo": cfg.get("objetivo"),
+        "asignacion": cfg.get("asignacion") or {"objetivos": {}},
         "pignoraciones": pignoracion.resumen(cfg, valores_hoy, fecha_extracto),
         "comisiones": comisiones,
         "rentabilidadAnual": rent_anual,

@@ -493,6 +493,173 @@
     return { activos, valorBase };
   }
 
+  /* ================================================================
+     PLANIFICACIÓN · meta con fecha y asignación objetivo
+     ================================================================ */
+  const sumaMeses = (iso, n) => {
+    const d = new Date(iso + "T00:00:00");
+    d.setMonth(d.getMonth() + n);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  };
+  const numEs = t => {
+    t = String(t == null ? "" : t).replace(/[€%\s]/g, "");
+    if (t.includes(",") || /^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "").replace(",", ".");
+    return parseFloat(t);
+  };
+  async function enviaApi(url, cuerpo) {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo) });
+    let j = {};
+    try { j = await r.json(); } catch (e) { /* vacío */ }
+    if (!r.ok || j.ok === false) throw new Error((j.errores || [j.error || "No he podido guardarlo."]).join("\n"));
+    return j;
+  }
+  function recargaEnPlan() {
+    recuerda.guarda("patrimonio.tab", "plan");
+    location.reload();
+  }
+
+  function pintaMeta() {
+    const el = $("#metaCuerpo");
+    if (!el) return;
+    const ob = D.objetivo && D.objetivo.activo ? D.objetivo : null;
+    const neto = metricas(TODOS()).valor;
+    const ritmo = D.total.ritmoMensual || 0;
+    const escenarios = [["Prudente", 0.03], ["Medio", 0.06], ["Optimista", 0.09]];
+    let cuerpo = "";
+    if (!ob) {
+      cuerpo = '<p class="vacio">Aún no has fijado una meta. Pon un importe (y, si quieres, una fecha) y verás cuándo llegas y cuánto aportar.</p>';
+    } else {
+      const filas = escenarios.map(([et, r]) => {
+        const m = Asignacion.mesesHasta(neto, ob.importe, ritmo, r);
+        const cuando = m == null ? "—" : G.fmtMes(sumaMeses(D.fechaExtracto, m).slice(0, 7));
+        let nec = "";
+        if (ob.fecha) {
+          const n = Asignacion.mesesEntre(D.fechaExtracto, ob.fecha);
+          const a = Asignacion.aportacionNecesaria(neto, ob.importe, n, r);
+          nec = a == null ? "—" : G.fmtEur(a, 0) + "/mes";
+        }
+        return `<tr><td>${et} · ${Math.round(r * 100)} % anual</td><td>${cuando}</td>${ob.fecha ? `<td>${nec}</td>` : ""}</tr>`;
+      }).join("");
+      const falta = Math.max(0, ob.importe - neto);
+      cuerpo = `<p>Meta: <b class="fuerte">${G.fmtEur(ob.importe, 0)}</b>${ob.fecha ? ` el <b class="fuerte">${G.fmtFecha(ob.fecha)}</b>` : ""}.
+          Tienes ${G.fmtEur(neto, 0)} (${G.fmtPct(Math.min(1, neto / ob.importe), 0)}) y te faltan ${G.fmtEur(falta, 0)}.
+          Con tu ritmo actual de <b>${G.fmtEur(ritmo, 0)}</b> al mes:</p>
+        <div class="tablaEnv"><table class="dt"><thead><tr><th>Escenario</th><th>Llegarías en</th>${ob.fecha ? "<th>Para llegar a la fecha, aportando</th>" : ""}</tr></thead>
+          <tbody>${filas}</tbody></table></div>`;
+    }
+    const editable = !window.ESTATICO;
+    el.innerHTML = cuerpo + (editable ? `
+      <form class="formMeta" id="formMeta" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:16px">
+        <label class="campo"><span class="et">Importe de la meta</span><input name="importe" inputmode="decimal" value="${ob ? String(ob.importe).replace(".", ",") : ""}" placeholder="100.000"></label>
+        <label class="campo"><span class="et">Fecha <em>opcional</em></span><input type="date" name="fecha" value="${ob && ob.fecha ? ob.fecha : ""}"></label>
+        <button class="btn prim" type="submit">Guardar meta</button><span class="subt" id="metaMsg" role="status"></span>
+      </form>` : "");
+    const f = $("#formMeta");
+    if (f) f.onsubmit = async e => {
+      e.preventDefault();
+      try {
+        await enviaApi("api/meta", { importe: f.elements.importe.value, fecha: f.elements.fecha.value, etiqueta: ob && ob.etiqueta });
+        recargaEnPlan();
+      } catch (x) { $("#metaMsg").textContent = x.message; }
+    };
+    $("#metaSubt").textContent = "Cuándo llegas y cuánto aportar";
+  }
+
+  const asig = { aport: null, edit: null, clave: "" };
+
+  /* Grupo por defecto: algo más útil que la categoría fina de Morningstar. */
+  function grupoAmplio(p) {
+    const c = String(p.clase || ""), n = String(p.nombre || "");
+    if (p.tipoClave === "cripto" || /bitcoin|btc|crypto|ether/i.test(n)) return "Criptoactivos";
+    if (p.tipoClave === "efectivo") return "Efectivo";
+    if (p.tipoClave === "accion") return "Acciones individuales";
+    if (p.tipoClave === "bono" || /^RF/i.test(c)) return "Renta fija";
+    if (/long\/short|alternativ|mixto|retorno absoluto/i.test(c)) return "Alternativos y mixtos";
+    if (p.tipoClave === "commodity") return "Materias primas";
+    if (p.tipoClave === "inmueble") return "Inmuebles";
+    if (/^RV/i.test(c) || p.tipoClave === "fondo" || p.tipoClave === "etf") return "Fondos y ETF de renta variable";
+    return "Otros";
+  }
+
+  function gruposAsignacion() {
+    const m = new Map();
+    TODOS().filter(enseñable).filter(p => valorDe(p) > 0 && !p.derivado).forEach(p => {
+      const k = p.grupo || grupoAmplio(p);
+      const g = m.get(k) || { id: k, valor: 0, n: 0, conGrupo: false };
+      g.valor += valorDe(p); g.n++; g.conGrupo = g.conGrupo || !!p.grupo;
+      m.set(k, g);
+    });
+    return [...m.values()].sort((a, b) => b.valor - a.valor);
+  }
+
+  function pintaAsignacion() {
+    const el = $("#asigCuerpo");
+    if (!el) return;
+    const grupos = gruposAsignacion();
+    const guardados = (D.asignacion && D.asignacion.objetivos) || {};
+    if (asig.aport == null) asig.aport = Math.round((D.total.ritmoMensual || 0) / 10) * 10;
+    if (!asig.edit) asig.edit = { ...guardados };
+    const editable = !window.ESTATICO;
+    const clave = grupos.map(g => g.id).join("|") + "|" + (editable ? "e" : "r");
+    if (clave !== asig.clave) {
+      asig.clave = clave;
+      el.innerHTML = `
+        <div class="alerta info" style="margin-bottom:14px">${ICO_INFO}<div>El reparto <b>no vende nada</b>: la aportación del mes va a los grupos que están por debajo de su objetivo.
+          Los grupos salen del campo «Grupo para la asignación» de cada producto (Datos → Productos); si está vacío, se agrupan por tipo de activo.
+          ${gruposAsignacion().every(g => !g.conGrupo) ? "<b>Aún no has puesto grupos propios:</b> ponlos para definir un reparto como «Renta variable 80 % / Liquidez 20 %»." : ""}</div></div>
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px">
+          <label class="campo"><span class="et">Aportación de este mes</span>
+            <input id="asigAport" inputmode="decimal" value="${String(asig.aport).replace(".", ",")}" ${editable ? "" : "disabled"}></label>
+          <span class="subt" id="asigSuma" role="status"></span>
+        </div>
+        <div class="tablaEnv"><table class="dt" id="tablaAsig"><thead><tr><th>Grupo</th><th>Vale hoy</th><th>Peso hoy</th>
+          <th>Objetivo %</th><th>Desviación</th><th>Poner este mes</th></tr></thead>
+          <tbody>${grupos.map(g => `<tr data-g="${esc(g.id)}"><td>${esc(g.id)} <small class="subt">· ${g.n}</small></td>
+            <td>${G.fmtEur(g.valor, 0)}</td><td data-p>—</td>
+            <td><input class="inObjAsig" inputmode="decimal" data-g="${esc(g.id)}" style="width:76px;text-align:right"
+                value="${guardados[g.id] != null ? String(guardados[g.id]).replace(".", ",") : ""}" placeholder="—" ${editable ? "" : "disabled"}></td>
+            <td data-d>—</td><td data-s>—</td></tr>`).join("")}</tbody></table></div>
+        ${editable ? `<div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <button class="btn prim" id="btnGuardaAsig">Guardar objetivos</button><span class="subt" id="asigMsg" role="status"></span></div>` : ""}`;
+      asig.edit = { ...guardados };
+      el.querySelectorAll(".inObjAsig").forEach(inp => inp.addEventListener("input", () => {
+        const v = numEs(inp.value);
+        if (v > 0) asig.edit[inp.dataset.g] = v; else delete asig.edit[inp.dataset.g];
+        actualizaAsignacion();
+      }));
+      $("#asigAport").addEventListener("input", e => { const v = numEs(e.target.value); asig.aport = v >= 0 ? v : 0; actualizaAsignacion(); });
+      const b = $("#btnGuardaAsig");
+      if (b) b.onclick = async () => {
+        try {
+          await enviaApi("api/asignacion", { objetivos: asig.edit });
+          recargaEnPlan();
+        } catch (x) { $("#asigMsg").textContent = x.message; }
+      };
+    }
+    actualizaAsignacion();
+  }
+
+  function actualizaAsignacion() {
+    const grupos = gruposAsignacion();
+    const filas = Asignacion.reparto(grupos.map(g => ({ id: g.id, valor: g.valor, objetivo: asig.edit[g.id] != null ? asig.edit[g.id] : null })), asig.aport || 0);
+    const suma = Object.values(asig.edit).reduce((a, b) => a + b, 0);
+    filas.forEach(f => {
+      const tr = $("#tablaAsig") && $("#tablaAsig").querySelector(`tr[data-g="${CSS.escape(f.id)}"]`);
+      if (!tr) return;
+      tr.querySelector("[data-p]").textContent = G.fmtPct(f.pesoHoy, 1);
+      const d = tr.querySelector("[data-d]");
+      d.textContent = f.desviacion == null ? "—" : (f.desviacion >= 0 ? "+" : "") + f.desviacion.toFixed(1).replace(".", ",") + " pp";
+      d.className = f.desviacion == null ? "" : Math.abs(f.desviacion) < 2 ? "" : f.desviacion > 0 ? "neg" : "pos";
+      tr.querySelector("[data-s]").innerHTML = f.objetivo ? `<b>${G.fmtEur(f.sugerido, 0)}</b>` : "—";
+    });
+    const el = $("#asigSuma");
+    if (el) {
+      el.textContent = Object.keys(asig.edit).length
+        ? `Objetivos: ${suma.toFixed(1).replace(".", ",")} %${Math.abs(suma - 100) > 0.5 ? " · deberían sumar 100 %" : ""} · máx. desviación ${Asignacion.maxDesviacion(filas).toFixed(1).replace(".", ",")} pp`
+        : "Escribe el porcentaje objetivo de cada grupo.";
+    }
+  }
+
   /* Deuda pendiente de los préstamos al final de cada mes de la proyección (según su cuadro). */
   function deudaMensual(meses) {
     const prest = (D.pignoraciones || []).filter(x => x.estado === "activa" && !estado.ocultos.has("pignoracion_" + x.id));
@@ -1426,7 +1593,7 @@
     else if (estado.tab === "mes") pintaMes();
     else if (estado.tab === "fondos") pintaFondos();
     else if (estado.tab === "riesgo") pintaRiesgo();
-    else if (estado.tab === "plan") pintaProyeccion();
+    else if (estado.tab === "plan") { pintaMeta(); pintaAsignacion(); pintaProyeccion(); }
     else if (estado.tab === "rendimiento") pintaRendimiento();
     else if (estado.tab === "datos" && window.Editor) window.Editor.mostrar();
   }
