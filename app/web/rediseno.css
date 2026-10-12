@@ -202,7 +202,7 @@ body.video .app{display:block}
     display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,460px);column-gap:28px;align-items:start;
   }
   #tab-patrimonio > *{grid-column:1;min-width:0}
-  #tab-patrimonio > #cockpit{grid-column:2;grid-row:1 / span 4;margin-top:34px;position:sticky;top:76px}
+  #tab-patrimonio > #cockpit{grid-column:2;grid-row:1 / span 4;margin-top:34px}
   #tab-patrimonio > #cockpit .cockGrid{grid-template-columns:1fr}
   #tab-patrimonio > .rejilla2,#tab-patrimonio > section:last-of-type{grid-column:1 / -1}
   #tab-patrimonio .hCifra{font-size:clamp(56px,5vw,88px)}
@@ -218,7 +218,7 @@ body.video .app{display:block}
 @media (min-width:1360px){
   #riesgo{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
   #riesgo > .tarjeta{margin-top:0!important}
-  #riesgo > .tarjeta[aria-labelledby="concTit"]{grid-column:2;grid-row:1 / span 3;position:sticky;top:76px}
+  #riesgo > .tarjeta[aria-labelledby="concTit"]{grid-column:2;grid-row:1 / span 3}
   #riesgo > .tarjeta:not([aria-labelledby="concTit"]){grid-column:1}
 }
 /* Planificación: meta y asignación a un lado, proyección al otro */
@@ -227,3 +227,14 @@ body.video .app{display:block}
   #tab-plan > .tarjeta{margin-top:0!important}
   #tab-plan > #seccionProyeccion{grid-column:2;grid-row:1 / span 2}
 }
+
+/* ============================================================
+   Blindaje contra desbordes: nada puede estirar la página en horizontal
+   ============================================================ */
+.contenido,.app{overflow-x:clip}
+.tarjeta > header{min-width:0}
+.tarjeta > header > *{min-width:0}
+.segm{flex-wrap:wrap;max-width:100%}
+#segTabla{display:flex;flex-wrap:wrap;gap:2px;max-width:100%}
+.tablaEnv{max-width:100%}
+img,svg,canvas{max-width:100%}

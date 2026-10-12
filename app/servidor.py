@@ -140,6 +140,8 @@ def cabeceras_de_proteccion(resp):
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("Referrer-Policy", "same-origin")
+    if not request.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-cache"          # revalidar siempre: el navegador nunca sirve estilos viejos
     return resp
 
 
