@@ -38,6 +38,9 @@ ESCUCHA = os.environ.get("PATRIMONIO_ESCUCHA") or "127.0.0.1"
 HOSTS_PERMITIDOS = {"127.0.0.1", "localhost", "::1"} | {
     h.strip().lower() for h in (os.environ.get("PATRIMONIO_HOSTS") or "").split(",") if h.strip()}
 HORAS_PRECIOS = 6          # al arrancar, se actualizan si tienen más de esto
+# Con la app abierta de forma continua (Docker), los precios se refrescan solos cada tantas horas.
+# PATRIMONIO_REFRESCO_HORAS=0 lo desactiva.
+HORAS_REFRESCO = float(os.environ.get("PATRIMONIO_REFRESCO_HORAS") or 3)
 
 app = Flask(__name__, static_folder=None)
 app.json.sort_keys = False   # respeta el orden de tipos y listas al mandarlos al navegador
@@ -89,7 +92,8 @@ def recalcula(descargar):
         datos = motor.construir(cartera(), DATOS, descargar=descargar)
         est = estado()
         if descargar is True:
-            est["preciosActualizados"] = dt.datetime.now().replace(microsecond=0).isoformat()
+            # Con zona horaria: así el navegador puede decir «hace 3 h» sin confundir la hora del contenedor.
+            est["preciosActualizados"] = dt.datetime.now().astimezone().replace(microsecond=0).isoformat()
             escribe_json(os.path.join(DATOS, "estado.json"), est)
         if datos is not None:
             datos["modo"] = modo()
@@ -98,11 +102,47 @@ def recalcula(descargar):
         return datos
 
 
+ACT = {"corriendo": False, "error": None, "inicio": None}
+cerrojo_act = threading.Lock()
+
+
+def actualiza_precios():
+    """
+    Baja los precios y recalcula. Devuelve los datos, o None si ya hay otra actualización en
+    marcha (así un clic doble o el refresco automático no se pisan).
+    """
+    if not cerrojo_act.acquire(blocking=False):
+        return None
+    try:
+        ACT.update(corriendo=True, error=None, inicio=dt.datetime.now().replace(microsecond=0).isoformat())
+        return recalcula(descargar=True)
+    except Exception as e:
+        ACT["error"] = str(e)
+        raise
+    finally:
+        ACT["corriendo"] = False
+        cerrojo_act.release()
+
+
+def bucle_refresco():
+    """Refresco automático de precios mientras la app está abierta."""
+    import time
+    while True:
+        time.sleep(HORAS_REFRESCO * 3600)
+        try:
+            actualiza_precios()
+        except Exception:
+            logging.exception("Fallo en el refresco automático")
+
+
 def precios_viejos():
     ultima = estado().get("preciosActualizados")
     if not ultima or not os.path.exists(ruta_calculado()):
         return True
-    return dt.datetime.now() - dt.datetime.fromisoformat(ultima) > dt.timedelta(hours=HORAS_PRECIOS)
+    f = dt.datetime.fromisoformat(ultima)
+    if f.tzinfo is not None:                      # las nuevas llevan zona horaria; las antiguas, no
+        f = f.astimezone().replace(tzinfo=None)
+    return dt.datetime.now() - f > dt.timedelta(hours=HORAS_PRECIOS)
 
 
 # ---------------------------------------------------------------- seguridad
@@ -165,11 +205,21 @@ def datos_js():
 @app.post("/api/actualizar")
 def api_actualizar():
     try:
-        datos = recalcula(descargar=True)
+        datos = actualiza_precios()
     except Exception as e:  # que la app no se caiga nunca por un precio
         logging.exception("Fallo al actualizar")
         return jsonify(ok=False, error=f"No he podido actualizar: {e}"), 500
-    return jsonify(ok=True, avisos=(datos or {}).get("avisos", []))
+    if datos is None:
+        return jsonify(ok=False, error="Ya se están actualizando los precios: espera un momento."), 409
+    return jsonify(ok=True, avisos=(datos or {}).get("avisos", []), generado=(datos or {}).get("generado"))
+
+
+@app.get("/api/estado")
+def api_estado():
+    """Lo justo para que la página sepa si hay datos más nuevos que los que está enseñando."""
+    calc = lee_json(ruta_calculado(), {}) or {}
+    return jsonify(generado=calc.get("generado"), preciosActualizados=estado().get("preciosActualizados"),
+                   actualizando=ACT["corriendo"], error=ACT["error"], refrescoHoras=HORAS_REFRESCO)
 
 
 @app.get("/api/cartera")
@@ -554,6 +604,9 @@ def main():
     except Exception as e:
         print(f"\n  [!] No he podido actualizar los precios: {e}")
         print("      Abro la app con los últimos datos guardados.")
+
+    if HORAS_REFRESCO > 0:
+        threading.Thread(target=bucle_refresco, daemon=True, name="refresco-precios").start()
 
     srv = None
     for puerto in range(PUERTO, PUERTO + 10):

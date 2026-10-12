@@ -1341,7 +1341,7 @@ def construir(cfg, carpeta, descargar=True):
         transparencia = None
 
     datos = {
-        "generado": dt.datetime.now().replace(microsecond=0).isoformat(),
+        "generado": dt.datetime.now().astimezone().replace(microsecond=0).isoformat(),
         "titular": cfg.get("titular", "Mi patrimonio"),
         "moneda": cfg.get("moneda", "EUR"),
         "fechaExtracto": fecha_extracto.isoformat(),

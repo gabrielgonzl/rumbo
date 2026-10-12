@@ -58,6 +58,7 @@
     btcVivo: null,
     compRef: recuerda.lee("patrimonio.compRef") || "mundo",
     ocultos: new Set(),
+    base: recuerda.lee("patrimonio.base") === "neto" ? "neto" : "activos",
   };
 
   /* ---------------------------------------------- ¿y si lo hubieras metido en un indexado? */
@@ -358,20 +359,41 @@
 
   function pintaPrincipal(m) {
     const fechas = corta(D.fechas);
-    const prods = visibles().filter(p => (p.serie || []).some(v => v));
+    const deudas = visibles().filter(p => p.tipoClave === "deuda");
+    const hayDeuda = deudas.length > 0;
+    const neto = hayDeuda && estado.base === "neto";
+    // m.serie es el patrimonio NETO. La deuda es un recurso de financiación, no una pérdida: por
+    // defecto el gráfico enseña los activos (para que pedir un préstamo no parezca una caída).
+    const sinDeuda = m.serie.map((v, i) => v - deudas.reduce((a, p) => a + ((p.serie || [])[i] || 0), 0));
+    const serieVista = neto ? m.serie : sinDeuda;
+    const prods = visibles().filter(p => (p.serie || []).some(v => v) && (neto || p.tipoClave !== "deuda"));
     const cont = $("#grafPrincipal");
     let nota = "";
 
+    // Selector «Activos | Neto de deuda» (solo si hay deuda).
+    let seg = $("#segBase");
+    if (!seg) {
+      seg = document.createElement("div");
+      seg.id = "segBase"; seg.className = "segm"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Qué valor enseñar");
+      $("#segRango").parentNode.insertBefore(seg, $("#segRango"));
+    }
+    seg.hidden = !hayDeuda;
+    if (hayDeuda) {
+      pintaSegm(seg, [{ id: "activos", et: "Activos" }, { id: "neto", et: "Neto de deuda" }], neto ? "neto" : "activos",
+        id => { estado.base = id; recuerda.guarda("patrimonio.base", id); pintaPrincipal(m); });
+    }
+
     if (estado.vista === "total") {
       G.lineaConEventos(cont, {
-        fechas, valores: corta(m.serie), color: G.css("--s1"), alto: 330,
+        fechas, valores: corta(serieVista), color: G.css("--s1"), alto: 330,
         overlay: { nombre: "Aportado", valores: corta(m.serieAportado) },
       });
+      if (hayDeuda) nota = neto ? "Neto: activos menos la deuda pendiente." : "Activos: no resta la deuda (ves el neto en la cifra de arriba).";
     } else if (estado.vista === "dinero") {
-      // Lo que pusiste tú contra lo que ha puesto el mercado.
-      const tuyo = m.serie.map((v, i) => Math.min(m.serieAportado[i], v));
-      const mercado = m.serie.map((v, i) => Math.max(0, v - m.serieAportado[i]));
-      const bajoCoste = m.serie.some((v, i) => v > 0 && v < m.serieAportado[i] - 0.01);
+      // Lo que pusiste tú contra lo que ha puesto el mercado (siempre sobre activos).
+      const tuyo = sinDeuda.map((v, i) => Math.min(m.serieAportado[i], v));
+      const mercado = sinDeuda.map((v, i) => Math.max(0, v - m.serieAportado[i]));
+      const bajoCoste = sinDeuda.some((v, i) => v > 0 && v < m.serieAportado[i] - 0.01);
       G.areaApilada(cont, {
         fechas, alto: 330,
         series: [
@@ -383,7 +405,8 @@
         ? "Hubo días por debajo de lo aportado: ahí la banda verde desaparece."
         : "La banda verde es rentabilidad, no dinero tuyo.";
     } else if (estado.vista === "reparto") {
-      const series = prods.map(p => ({ id: p.id, nombre: p.corto || p.nombre, color: color(p), valores: corta(p.serie) }));
+      const series = prods.filter(p => p.tipoClave !== "deuda")
+        .map(p => ({ id: p.id, nombre: p.corto || p.nombre, color: color(p), valores: corta(p.serie) }));
       const tot = fechas.map((_, i) => series.reduce((a, s) => a + (s.valores[i] || 0), 0));
       series.forEach(s => { s.valores = s.valores.map((v, i) => tot[i] ? (v || 0) / tot[i] * 100 : 0); });
       G.areaApilada(cont, {
@@ -394,13 +417,16 @@
     } else {
       G.areaApilada(cont, {
         fechas, alto: 330,
-        series: prods.map(p => ({ id: p.id, nombre: p.corto || p.nombre, color: color(p), valores: corta(p.serie) })),
+        series: prods.filter(p => p.tipoClave !== "deuda")
+          .map(p => ({ id: p.id, nombre: p.corto || p.nombre, color: color(p), valores: corta(p.serie) })),
         overlay: { nombre: "Aportado", valores: corta(m.serieAportado) },
       });
-      const tardios = visibles().filter(p => p.desde && p.desde > D.fechas[0] && p.aportado == null);
+      const tardios = visibles().filter(p => p.desde && p.desde > D.fechas[0] && p.aportado == null && p.tipoClave !== "deuda" && !p.derivado);
       if (tardios.length) {
         nota = tardios.map(p => p.corto).join(", ") + (tardios.length > 1 ? " entran" : " entra") +
           " en el seguimiento el " + G.fmtFecha(tardios[0].desde);
+      } else if (hayDeuda) {
+        nota = "Activos por producto; la deuda no se resta en este gráfico.";
       }
     }
     $("#evolNota").textContent = nota;
@@ -702,18 +728,19 @@
       formatoY: v => G.fmtEurCorto(v), formatoValor: v => G.fmtEur(v, 0),
     });
 
-    const partes = [];
-    partes.push(`En ${anos} años, tu patrimonio neto acabaría <b class="fuerte">entre ${G.fmtEur(r.p10[meses], 0)} y ${G.fmtEur(r.p90[meses], 0)}</b>
-      en 8 de cada 10 futuros; el típico, ${G.fmtEur(r.p50[meses], 0)}.`);
+    const k = (e, v, n, cl) => `<div class="kpi"><div class="e">${e}</div><div class="v ${cl || ""}">${v}</div>${n ? `<div class="n">${n}</div>` : ""}</div>`;
+    const tarjetas = [k(`Patrimonio neto en ${anos} años`, G.fmtEur(r.p50[meses], 0),
+      `8 de cada 10 futuros acaban entre ${G.fmtEur(r.p10[meses], 0)} y ${G.fmtEur(r.p90[meses], 0)}`)];
     if (r.probDeudaMayor != null) {
-      const pl = r.probLimite;
-      partes.push(pl != null
-        ? `Probabilidad de que el préstamo toque el límite del ${String(prest[0].ltvMax).replace(".", ",")} % en algún momento:
-           <b class="${pl > 0.25 ? "neg" : "fuerte"}">${G.fmtPct(pl, 0)}</b>.`
-        : `Aún no has indicado el límite de tu entidad: no puedo calcular cuándo te pedirían más garantía.`);
-      partes.push(`Probabilidad de que la deuda llegue a superar a la garantía: <b class="${r.probDeudaMayor > 0.1 ? "neg" : "fuerte"}">${G.fmtPct(r.probDeudaMayor, 0)}</b>.`);
+      tarjetas.push(r.probLimite != null
+        ? k("Probabilidad de tocar tu límite", G.fmtPct(r.probLimite, 0),
+            `préstamo / garantía por encima del ${String(prest[0].ltvMax).replace(".", ",")} % en algún momento`, r.probLimite > 0.25 ? "neg" : "")
+        : k("Probabilidad de tocar tu límite", "—", "indica el límite de tu entidad (LTV máximo) para calcularla"));
+      tarjetas.push(k("Deuda mayor que la garantía", G.fmtPct(r.probDeudaMayor, 0),
+        "probabilidad de que llegue a ocurrir en el plazo", r.probDeudaMayor > 0.1 ? "neg" : ""));
     }
-    $("#mcResumen").innerHTML = partes.join('<span style="color:var(--tinta3)"> · </span>');
+    $("#mcResumen").className = "mcKpis";
+    $("#mcResumen").innerHTML = tarjetas.join("");
     $("#mcNota").textContent = "Supone que la cartera y la garantía suben y bajan a la vez y que los rendimientos siguen una campana " +
       "con la rentabilidad y volatilidad de arriba. Los mercados reales tienen caídas más bruscas: tómalo como orden de magnitud, no como pronóstico.";
   }
@@ -833,34 +860,87 @@
   const nivelEt = (n, limite) => n === "peligro" && !limite ? "Deuda mayor que la garantía" : (NIVEL_ET[n] || "Activa");
   const NIVEL_CL = { bajo: "ok", medio: "warn", alto: "warn", peligro: "danger" };
 
+  /* ---- Avisos de datos en lenguaje llano ---- */
+  const nombreDeCodigo = cod => {
+    const c = String(cod).replace(/\.F$/, "");
+    const p = D.productos.concat(D.otrosActivos || []).find(x => x.codigo === cod || x.codigo === c);
+    return p ? (p.corto || p.nombre) : cod;
+  };
+  const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+  const lista = arr => arr.length > 2 ? arr.slice(0, -1).join(", ") + " y " + arr[arr.length - 1] : arr.join(" y ");
+
+  function avisosAmigables() {
+    const sinRed = [], viejos = [], otros = [];
+    (D.avisos || []).forEach(a => {
+      let m;
+      if ((m = /^(.+?): sin conexion y sin cache/.exec(a))) sinRed.push(nombreDeCodigo(m[1]));
+      else if ((m = /^(.+?): el último precio que tengo es del (\d{4}-\d{2}-\d{2})/.exec(a))) viejos.push({ nombre: m[1], fecha: m[2] });
+      else otros.push(a);
+    });
+    const out = [];
+    if (sinRed.length) {
+      out.push({ tipo: "sinRed", clave: "sinRed:" + sinRed.join(","),
+        t: `No he podido descargar el precio de <b>${esc(lista(sinRed))}</b> (sin conexión con la fuente). Se usa el último valor guardado.` });
+    }
+    if (viejos.length) {
+      const peor = viejos.reduce((a, v) => v.fecha < a.fecha ? v : a, viejos[0]);
+      out.push({ tipo: "viejo", clave: "viejo:" + viejos.map(v => v.nombre + v.fecha).join(","),
+        t: `Precio desactualizado: <b>${esc(lista(viejos.map(v => v.nombre)))}</b>. El último que tengo es del ${G.fmtFecha(peor.fecha)}` +
+           ` (hace ${diasEntre(peor.fecha, D.fechaExtracto)} días).` });
+    }
+    otros.forEach(a => out.push({ tipo: "otro", clave: "otro:" + a, t: esc(a) }));
+    return out;
+  }
+
+  /* ---- Alertas del Resumen: solo lo accionable, y descartables ---- */
+  const ocultas = () => { try { return JSON.parse(recuerda.lee("patrimonio.alertasOcultas") || "{}"); } catch (e) { return {}; } };
+  function descarta(clave) {
+    const o = ocultas();
+    o[clave] = Date.now();
+    Object.keys(o).forEach(k => { if (Date.now() - o[k] > 90 * 86400000) delete o[k]; });   // se olvidan a los 90 días
+    recuerda.guarda("patrimonio.alertasOcultas", JSON.stringify(o));
+  }
+
+  /*
+    Cuándo sale cada alerta (la clave cambia cuando cambia la situación, y entonces vuelve a salir):
+      · Préstamo: solo si el nivel es de atención o peor (≥ 70 % de la garantía, o relativo a tu límite);
+        se vuelve a mostrar si empeora de nivel o el ratio se mueve más de 5 puntos.
+      · Cuota: en los 7 días previos.
+      · Precios: si falló la descarga o el precio tiene más de 7 días.
+      · Datos: si los precios son de hace más de un día.
+  */
   function alertas() {
     const out = [];
     (D.pignoraciones || []).filter(x => x.estado === "activa").forEach(x => {
+      const clave = `ltv:${x.id}:${x.nivel}:${Math.round((x.ratio || 0) * 20)}`;
       if (x.nivel === "peligro" && x.superaLimite) {
-        out.push({ cl: "danger", ico: ICO_ALERTA, ir: "riesgo",
+        out.push({ clave, cl: "danger", ico: ICO_ALERTA, ir: "riesgo",
           t: `<b>${esc(x.nombre)}:</b> el préstamo es el ${pctTxt(x.ratio)} de la garantía y tu límite es el ` +
              `${String(x.ltvMax).replace(".", ",")} %. Para volver al límite habría que amortizar ` +
              `<b>${G.fmtEur(x.amortizarParaLimite, 0)}</b> o añadir ${G.fmtEur(x.garantiaAnadirParaLimite, 0)} de garantía.` });
       } else if (x.nivel === "peligro") {
-        out.push({ cl: "danger", ico: ICO_ALERTA, ir: "riesgo",
+        out.push({ clave, cl: "danger", ico: ICO_ALERTA, ir: "riesgo",
           t: `<b>${esc(x.nombre)}:</b> la deuda (${G.fmtEur(x.saldo, 0)}) supera ya el valor de la garantía (${G.fmtEur(x.garantia, 0)}).` });
       } else if (x.nivel === "alto" || x.nivel === "medio") {
-        out.push({ cl: "warn", ico: ICO_ALERTA, ir: "riesgo",
+        out.push({ clave, cl: "warn", ico: ICO_ALERTA, ir: "riesgo",
           t: `<b>${esc(x.nombre)}:</b> el préstamo es el ${pctTxt(x.ratio)} de la garantía. Si esos activos caen un ` +
              `${pctTxt(x.caidaHastaLimite != null ? x.caidaHastaLimite : x.caidaHastaIgualar)}, ` +
              `${x.caidaHastaLimite != null ? "tocarías el límite de tu entidad" : "la garantía igualaría la deuda"}.` });
       }
-      if (x.proxima && diasHasta(x.proxima.fecha) >= 0 && diasHasta(x.proxima.fecha) <= 10) {
-        out.push({ cl: "info", ico: ICO_INFO,
+      if (x.proxima && diasHasta(x.proxima.fecha) >= 0 && diasHasta(x.proxima.fecha) <= 7) {
+        out.push({ clave: `cuota:${x.id}:${x.proxima.fecha}`, cl: "info", ico: ICO_INFO,
           t: `Próxima cuota de <b>${esc(x.nombre)}</b>: ${G.fmtEur(x.proxima.cuota)} el ${G.fmtFecha(x.proxima.fecha)}.` });
       }
     });
-    const viejos = (D.avisos || []).filter(a => /último precio que tengo/.test(a)).length;
-    if (viejos) {
-      out.push({ cl: "info", ico: ICO_INFO,
-        t: `${viejos} ${viejos === 1 ? "producto tiene" : "productos tienen"} el precio desactualizado. Pulsa «Actualizar precios».` });
+    avisosAmigables().filter(a => a.tipo === "sinRed" || a.tipo === "viejo")
+      .forEach(a => out.push({ clave: a.clave, cl: "info", ico: ICO_INFO, t: a.t }));
+    const pa = D.preciosActualizados && /[+-]\d\d:\d\d$|Z$/.test(D.preciosActualizados) ? Date.parse(D.preciosActualizados) : null;
+    if (pa && !window.ESTATICO && Date.now() - pa > 36 * 3600000) {
+      out.push({ clave: "datosViejos:" + D.preciosActualizados.slice(0, 10), cl: "info", ico: ICO_INFO, accion: "actualizar",
+        t: `Los precios son de hace ${Math.round((Date.now() - pa) / 86400000)} días. Pulsa «Actualizar precios».` });
     }
-    return out;
+    const ocultasAhora = window.ESTATICO ? {} : ocultas();
+    return out.filter(a => !ocultasAhora[a.clave]);
   }
 
   function pintaCockpit() {
@@ -900,7 +980,11 @@
 
     el.innerHTML = `
       ${al.length ? `<div class="alertas">${al.map(a => `<div class="alerta ${a.cl}" role="${a.cl === "danger" ? "alert" : "status"}">
-          ${a.ico}<div>${a.t}</div>${a.ir ? `<button class="btn acc" data-ir="${a.ir}">Ver riesgo →</button>` : ""}</div>`).join("")}</div>` : ""}
+          ${a.ico}<div class="txt">${a.t}</div>
+          <div class="acciones">${a.ir ? `<button class="btn" data-ir="${a.ir}">Ver riesgo</button>` : ""}
+            ${a.accion === "actualizar" ? `<button class="btn" data-actualizar>Actualizar</button>` : ""}
+            ${window.ESTATICO ? "" : `<button class="btn suave" data-cierra="${esc(a.clave)}" aria-label="Descartar este aviso" title="Descartar: volverá a salir si la situación cambia">✕</button>`}</div>
+        </div>`).join("")}</div>` : ""}
       <div class="cockGrid">
         <div>
           <div class="patrim">
@@ -921,6 +1005,8 @@
         </section>
       </div>`;
     el.querySelectorAll("[data-ir]").forEach(b => { b.onclick = () => irA(b.dataset.ir); });
+    el.querySelectorAll("[data-cierra]").forEach(b => { b.onclick = () => { descarta(b.dataset.cierra); pintaCockpit(); }; });
+    el.querySelectorAll("[data-actualizar]").forEach(b => { b.onclick = () => actualizaPrecios(); });
   }
 
   /* ================================================================
@@ -1679,12 +1765,12 @@
 
   /* ---------------------------------------------- avisos y pie */
   function pintaComun() {
-    $("#avisos").innerHTML = (D.avisos || [])
-      .map(a => `<div class="av"><span>⚠</span><span>${a}</span></div>`).join("");
+    $("#avisos").innerHTML = avisosAmigables()
+      .map(a => `<div class="av"><span>⚠</span><span>${a.t}</span></div>`).join("");
     const pa = D.preciosActualizados;
     const fuentes = [...new Set(D.productos.map(p => p.fuentePrecio).filter(Boolean))];
     $("#pie").innerHTML =
-      `${pa ? `Precios actualizados el ${G.fmtFecha(pa.slice(0, 10))} a las ${pa.slice(11, 16)}` : "Precios sin actualizar"} ·
+      `${pa ? `Precios actualizados ${fechaHoraLocal(pa)}` : "Precios sin actualizar"} ·
        datos valorados a ${G.fmtFecha(D.fechaExtracto)} ·
        ${D.total.diasInvertido} días invertido.<br>
        Fuentes de precios: ${fuentes.join(", ") || "ninguna"}. En la pestaña Productos verás la de cada uno.<br>
@@ -1699,6 +1785,82 @@
       document.querySelectorAll(".enlaceCanal").forEach(el => { el.href = K.canal; });
       document.querySelectorAll(".enlaceSuscribir").forEach(el => { el.href = K.suscribir; });
     }
+  }
+
+  /* ---------------------------------------------- avisos emergentes (toasts) */
+  function toast(texto, op) {
+    op = op || {};
+    let cont = $("#toasts");
+    if (!cont) {
+      cont = document.createElement("div");
+      cont.id = "toasts"; cont.className = "toasts"; cont.setAttribute("aria-live", "polite");
+      document.body.appendChild(cont);
+    }
+    const t = document.createElement("div");
+    t.className = "toast " + (op.tipo || "info");
+    t.setAttribute("role", op.tipo === "danger" ? "alert" : "status");
+    t.innerHTML = `<span>${esc(texto)}</span>`;
+    if (op.accion) {
+      const b = document.createElement("button");
+      b.className = "btn"; b.textContent = op.accion.t;
+      b.onclick = () => { t.remove(); op.accion.f(); };
+      t.appendChild(b);
+    }
+    const x = document.createElement("button");
+    x.className = "btn suave"; x.textContent = "✕"; x.setAttribute("aria-label", "Cerrar aviso");
+    x.onclick = () => t.remove();
+    t.appendChild(x);
+    cont.appendChild(t);
+    const ms = op.ms == null ? 6000 : op.ms;
+    if (ms) setTimeout(() => t.remove(), ms);
+    return t;
+  }
+
+  function haceCuanto(iso) {
+    if (!/[+-]\d\d:\d\d$|Z$/.test(iso || "")) return null;          // sin zona horaria no se puede fiar
+    const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+    if (min < 2) return "hace un momento";
+    if (min < 60) return `hace ${min} min`;
+    if (min < 36 * 60) return `hace ${Math.round(min / 60)} h`;
+    return `hace ${Math.round(min / 1440)} días`;
+  }
+  function fechaHoraLocal(iso) {
+    if (!/[+-]\d\d:\d\d$|Z$/.test(iso || "")) return `el ${G.fmtFecha(iso.slice(0, 10))} a las ${iso.slice(11, 16)}`;
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+    return `el ${dd} a las ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+  function pintaMeta_() {
+    const hace = haceCuanto(D.preciosActualizados);
+    $("#metaFecha").textContent = "Datos a " + G.fmtFecha(D.fechaExtracto) + (hace ? " · precios " + hace : "");
+  }
+
+  async function actualizaPrecios() {
+    const b = $("#btnPrecios");
+    if (!b || b.disabled) return;
+    const etq = b.querySelector(".lbl");
+    b.disabled = true;
+    b.classList.add("cargando");
+    if (etq) etq.textContent = "Actualizando…";
+    try {
+      const r = await fetch("api/actualizar", { method: "POST" });
+      let j = {};
+      try { j = await r.json(); } catch (e) { /* vacío */ }
+      if (r.status === 409) {
+        toast(j.error || "Ya se están actualizando los precios.", { tipo: "info" });
+      } else if (!r.ok || !j.ok) {
+        throw new Error(j.error || "No he podido actualizar los precios.");
+      } else {
+        try { sessionStorage.setItem("rumbo.toast", JSON.stringify({ n: (j.avisos || []).length })); } catch (e) { /* da igual */ }
+        location.reload();
+        return;
+      }
+    } catch (e) {
+      toast(e.message || "No he podido actualizar los precios. ¿Tienes conexión a internet?", { tipo: "danger", ms: 0 });
+    }
+    b.disabled = false;
+    b.classList.remove("cargando");
+    if (etq) etq.textContent = "Actualizar precios";
   }
 
   /* ---------------------------------------------- bitcoin en vivo */
@@ -1765,24 +1927,11 @@
   /* ---------------------------------------------- arranque */
   document.title = "Rumbo · " + (D.titular || "Mi patrimonio");
   $("#marcaTexto").textContent = D.titular || "Mi patrimonio";
-  $("#metaFecha").textContent = "Datos a " + G.fmtFecha(D.fechaExtracto);
+  pintaMeta_();
+  setInterval(pintaMeta_, 60000);
 
   $("#btnTema").onclick = () => { cambiaTema(); pintar(); };
-  if ($("#btnPrecios")) $("#btnPrecios").onclick = async () => {
-    const b = $("#btnPrecios");
-    b.disabled = true;
-    b.textContent = "↻ Actualizando…";
-    try {
-      const r = await fetch("api/actualizar", { method: "POST" });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error);
-      location.reload();
-    } catch (e) {
-      alert(e.message || "No he podido actualizar los precios. ¿Tienes conexión a internet?");
-      b.disabled = false;
-      b.textContent = "↻ Actualizar precios";
-    }
-  };
+  if ($("#btnPrecios")) $("#btnPrecios").onclick = actualizaPrecios;
   if (location.protocol === "file:" && $("#btnPrecios")) $("#btnPrecios").hidden = true;
   $("#btnVideo").onclick = () => {
     document.body.classList.toggle("video");
@@ -1870,4 +2019,28 @@
   }
   actualizaVivo();
   setInterval(actualizaVivo, 60000);
+
+  // Tras actualizar los precios la página se recarga: se confirma con un aviso.
+  try {
+    const t = JSON.parse(sessionStorage.getItem("rumbo.toast") || "null");
+    if (t) {
+      sessionStorage.removeItem("rumbo.toast");
+      toast("Precios actualizados." + (t.n ? ` Con ${t.n} ${t.n === 1 ? "aviso" : "avisos"}: míralos al final de la página.` : ""),
+        { tipo: "ok" });
+    }
+  } catch (e) { /* da igual */ }
+  // Si la app actualiza sola (cada pocas horas) mientras la tienes abierta, avisa sin recargar de golpe.
+  if (!window.ESTATICO && location.protocol !== "file:") {
+    let avisado = null;
+    setInterval(async () => {
+      try {
+        const r = await fetch("api/estado", { cache: "no-store" });
+        const j = await r.json();
+        if (j.generado && D.generado && j.generado > D.generado && j.generado !== avisado && estado.tab !== "datos") {
+          avisado = j.generado;
+          toast("Hay precios más recientes.", { ms: 0, accion: { t: "Ver", f: () => location.reload() } });
+        }
+      } catch (e) { /* sin red local: se reintenta */ }
+    }, 180000);
+  }
 })();

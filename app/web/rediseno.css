@@ -240,3 +240,46 @@ body.video .app{display:block}
 #segTabla{display:flex;flex-wrap:wrap;gap:2px;max-width:100%}
 .tablaEnv{max-width:100%}
 img,svg,canvas{max-width:100%}
+
+/* ============================================================
+   Formularios en línea (meta, asignación, búsqueda): mismo aspecto que los de los diálogos
+   ============================================================ */
+.contenido input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+.contenido select{
+  font:inherit;font-size:14px;color:var(--tinta);background:var(--sup2);border:1px solid var(--borde);
+  border-radius:10px;height:40px;padding:0 12px;box-sizing:border-box;min-width:0;
+  transition:border-color .12s,box-shadow .12s,background .12s;
+}
+.contenido input:hover,.contenido select:hover{border-color:color-mix(in srgb,var(--tinta3) 55%,transparent)}
+.contenido input:focus,.contenido select:focus{outline:0;background:var(--sup);border-color:var(--info);box-shadow:var(--foco)}
+.contenido input::placeholder{color:var(--tinta3);opacity:.8}
+.contenido input:disabled{opacity:.55;cursor:not-allowed}
+.contenido td input.inObjAsig,.contenido td input.inObj{height:34px;text-align:right;font-variant-numeric:tabular-nums}
+.contenido .campo > input{width:100%}
+.btn.prim{background:var(--info);border-color:var(--info);color:#fff}
+.btn.prim:hover{filter:brightness(1.08)}
+.btn.suave{border-color:transparent;background:transparent;padding:6px 9px}
+.btn.suave:hover{background:var(--sup2)}
+.btn.cargando{pointer-events:none}
+.btn.cargando > span:first-child{display:inline-block;animation:gira 1s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+
+/* ---------------------------------------------- alertas con acciones */
+.alertas{display:grid;gap:8px}
+.alerta .txt{flex:1;min-width:0}
+.alerta .acciones{display:flex;gap:6px;align-items:center;flex:none;margin-left:auto}
+@media (max-width:640px){.alerta{flex-wrap:wrap}.alerta .acciones{width:100%;justify-content:flex-end}}
+
+/* ---------------------------------------------- avisos emergentes */
+.toasts{position:fixed;right:20px;bottom:20px;z-index:90;display:grid;gap:8px;max-width:min(420px,calc(100vw - 32px))}
+.toast{display:flex;align-items:center;gap:10px;background:var(--sup);border:1px solid var(--borde);border-left:4px solid var(--info);
+  border-radius:12px;padding:11px 12px 11px 14px;box-shadow:0 14px 40px rgba(0,0,0,.35);font-size:14px;color:var(--tinta)}
+.toast > span{flex:1;min-width:0}
+.toast.ok{border-left-color:var(--ok)} .toast.danger{border-left-color:var(--danger)}
+@media (max-width:900px){.toasts{right:16px;left:16px;bottom:calc(76px + env(safe-area-inset-bottom));max-width:none}}
+body.video .toasts{display:none}
+
+/* ---------------------------------------------- Montecarlo */
+.mcKpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.mcKpis .kpi .v{font-size:22px}
+
