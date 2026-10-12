@@ -294,6 +294,12 @@ def guarda_movimiento(cfg, datos):
         mov["comision"] = round(comision, 2)
     if texto(datos.get("nota")):
         mov["nota"] = texto(datos.get("nota"))
+    ff = str(datos.get("fechaFiscal") or "")[:10]
+    if ff and ff != f:
+        try:
+            mov["fechaFiscal"] = dt.date.fromisoformat(ff).isoformat()   # fecha fiscal si difiere de la real
+        except ValueError:
+            pass
     lista = cfg.setdefault("movimientos", [])
     existente = next((m for m in lista if m.get("id") == datos.get("id")), None) if datos.get("id") else None
     if existente:

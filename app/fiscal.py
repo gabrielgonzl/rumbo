@@ -89,7 +89,8 @@ def ventas_realizadas(cfg):
         if not p:
             continue
         orden = {"compra": 0, "comision": 1, "dividendo": 2, "venta": 3}
-        movs = sorted(movs, key=lambda m: (m["fecha"], orden.get(m.get("tipo"), 9)))
+        fisc = lambda m: m.get("fechaFiscal") or m["fecha"]        # FIFO por fecha fiscal, no por la de entrada
+        movs = sorted(movs, key=lambda m: (fisc(m), orden.get(m.get("tipo"), 9)))
         lotes = []                                    # [fecha, unidades restantes, coste por unidad, id]
         for m in movs:
             u, imp = float(m.get("unidades") or 0), float(m.get("importe") or 0)
@@ -139,9 +140,10 @@ def marca_recompra(cfg, ventas):
         for c in compras.get(v["producto"], []):
             if c.get("id") in v["consumidas"]:
                 continue
-            if ini <= _f(c["fecha"]) <= fin:
+            fc = c.get("fechaFiscal") or c["fecha"]
+            if ini <= _f(fc) <= fin:
                 v["diferida"] = True
-                v["recompra"] = c["fecha"]
+                v["recompra"] = fc
                 break
 
 

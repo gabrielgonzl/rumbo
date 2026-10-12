@@ -1037,9 +1037,10 @@ def construir(cfg, carpeta, descargar=True):
 
     def indice_twr(valores, flujos):
         """
-        Rentabilidad encadenada, limpia del efecto de cuando entra el dinero.
-        El dia que empieza la posicion cuenta la diferencia entre lo que pagaste
-        (comisiones incluidas) y el cierre de ese dia.
+        Rentabilidad encadenada, limpia del efecto de cuando entra el dinero. Las entradas y
+        salidas llegan ya valoradas a precio de mercado, así que el día que empieza una posición
+        no cuenta rentabilidad (antes se comparaba el coste con el cierre: con traspasos o clases
+        de fondo nuevas, eso disparaba el índice).
         """
         out, ant, nivel = [], None, 100.0
         for i in range(len(valores)):
@@ -1049,15 +1050,46 @@ def construir(cfg, carpeta, descargar=True):
                 out.append(nivel)
                 continue
             if ant is None or ant <= 1:
-                if f > 0:
-                    nivel *= max(v / f, 0.05)
+                pass            # la posición empieza (o se reanuda) aquí: ese día no hay rentabilidad que contar
             else:
                 nivel *= 1.0 + max((v - f) / ant - 1.0, -0.95)
             out.append(nivel)
             ant = v
         return out
 
-    idx_cartera = indice_twr(serie_inv, flujo_inv)
+    # Para la rentabilidad (TWR) las entradas y salidas se valoran A PRECIO DE MERCADO del día
+    # (unidades × precio), no por lo que costaron: si el coste de un lote no cuadra con el precio
+    # (traspasos, fecha fiscal distinta de la de entrada) la diferencia no es rentabilidad.
+    flujo_mkt = [0.0] * n
+    flujo_mkt_prod = {p["id"]: [0.0] * n for p in inv}
+    for p in inv:
+        nav = p.get("navSerie") or []
+        # Primer día con valor: lo que entró antes de que el precio exista (clases de fondo nuevas,
+        # traspasos) entra ese día, que es cuando empieza a verse en la serie.
+        i0 = next((k for k, v in enumerate(p["serie"]) if v is not None), None)
+        if i0 is None:
+            continue
+        for m in movs_por.get(p["id"], []):
+            i = idx_fecha.get(m["fecha"])
+            if i is None:
+                continue
+            i = max(i, i0)
+            t_m, u_m, imp_m = m.get("tipo"), float(m.get("unidades") or 0), float(m.get("importe") or 0)
+            precio = nav[i] if i < len(nav) and nav[i] else None
+            if t_m == "compra":
+                x = u_m * precio if (precio and u_m > 0) else imp_m
+            elif t_m == "venta":
+                x = -(u_m * precio if (precio and u_m > 0) else imp_m)
+            elif t_m == "dividendo":
+                x = -imp_m
+            elif t_m == "comision":
+                x = imp_m
+            else:
+                continue
+            flujo_mkt[i] += x
+            flujo_mkt_prod[p["id"]][i] += x
+
+    idx_cartera = indice_twr(serie_inv, flujo_mkt)
 
     # Peor caída de la RENTABILIDAD (índice TWR): no se ve afectada por aportaciones, ventas ni deuda.
     pico_i, dd_twr, dd_twr_fecha = 0.0, 0.0, None
@@ -1176,7 +1208,7 @@ def construir(cfg, carpeta, descargar=True):
     # precio real que pagaste (con comisiones) y sin que cuente cuando metiste cada
     # euro. En un ano completo coincide con la publicada del fondo; el primer ano
     # cuenta desde tu primera compra.
-    idx_prod = {p["id"]: indice_twr(p["serie"], flujo_prod[p["id"]]) for p in inv}
+    idx_prod = {p["id"]: indice_twr(p["serie"], flujo_mkt_prod[p["id"]]) for p in inv}
     anos_nat = sorted({f[:4] for f in eje_iso})
     rent_anual = {"anos": anos_nat, "cartera": [], "parcial": [],
                   "porProducto": {p["id"]: [] for p in inv},

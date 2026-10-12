@@ -322,9 +322,9 @@
 
   function pintaKPIs(m) {
     const sinFiltro = !filtrando();
-    const twr = sinFiltro && D.total.caidaMaximaMercado != null;
-    const caida = twr ? D.total.caidaMaximaMercado : m.caida;
-    const caidaFecha = twr ? D.total.caidaMaximaMercadoFecha : m.caidaFecha;
+    const twr = sinFiltro && D.total.caidaMaximaTwr != null;
+    const caida = twr ? D.total.caidaMaximaTwr : m.caida;
+    const caidaFecha = twr ? D.total.caidaMaximaTwrFecha : m.caidaFecha;
     const prest = (D.pignoraciones || []).find(x => x.estado === "activa" && x.ratio != null);
     const kpis = [
       { e: "Aportado", v: G.fmtEur(m.aportado, 0), n: `${m.numAportaciones} aportaciones` },
@@ -343,7 +343,7 @@
       { e: "Ritmo mensual", v: G.fmtEur(m.ritmo, 0), n: "últimos 12 meses naturales ÷ 12" },
       { e: "Racha", v: m.racha + (m.racha === 1 ? " mes" : " meses"), n: "aportando sin fallar" },
       { e: "Peor caída", v: G.fmtPctSigno(caida),
-        n: caidaFecha ? (twr ? "desde máximos, sin contar aportaciones · " : "del valor filtrado, el ") + G.fmtFecha(caidaFecha) : "", cl: "neg" });
+        n: caidaFecha ? (twr ? "de la rentabilidad, sin contar aportaciones · " : "del valor filtrado, el ") + G.fmtFecha(caidaFecha) : "", cl: "neg" });
     if (sinFiltro && prest) {
       kpis.push({ e: "Préstamo / garantía", v: G.fmtPct(prest.ratio, 1),
         n: prest.ltvMax ? "límite " + String(prest.ltvMax).replace(".", ",") + " %" : "límite sin indicar",
