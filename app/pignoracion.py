@@ -154,10 +154,83 @@ def resumen(cfg, valores, hoy):
             ltv = float(e["ltvMax"]) / 100 if e.get("ltvMax") else None
             e["caidaHastaLimite"] = round(max(0.0, 1 - deuda / (ltv * garantia)), 4) if ltv else None
             e["garantiaMinima"] = round(deuda / ltv, 2) if ltv else None
+            e["superaLimite"] = bool(ltv and deuda > ltv * garantia)
+            # Lo que habría que amortizar (o garantía que añadir) para volver al límite.
+            e["amortizarParaLimite"] = round(max(0.0, deuda - ltv * garantia), 2) if ltv else None
+            e["garantiaAnadirParaLimite"] = round(max(0.0, deuda / ltv - garantia), 2) if ltv else None
+            e["nivel"] = nivel_riesgo(e["ratio"], ltv)
+            e["stress"] = [{"caida": c, "garantia": round(garantia * (1 - c), 2),
+                            "ratio": round(deuda / (garantia * (1 - c)), 4),
+                            "nivel": nivel_riesgo(deuda / (garantia * (1 - c)), ltv)}
+                           for c in STRESS]
         else:
-            e["ratio"] = e["caidaHastaIgualar"] = e["caidaHastaLimite"] = e["garantiaMinima"] = None
+            for k in ("ratio", "caidaHastaIgualar", "caidaHastaLimite", "garantiaMinima", "superaLimite",
+                      "amortizarParaLimite", "garantiaAnadirParaLimite", "nivel"):
+                e[k] = None
+            e["stress"] = []
+        e["calendario"] = calendario(p, hoy)
         salida.append(e)
     return salida
+
+
+STRESS = (0.10, 0.20, 0.30, 0.40)
+
+
+def nivel_riesgo(ratio, ltv_max=None):
+    """
+    'bajo' | 'medio' | 'alto' | 'peligro'. Con el límite de la entidad, se mide contra él
+    (peligro = ya lo superas); sin él, con umbrales genéricos (70 % y 85 % de la garantía).
+    """
+    if ratio is None:
+        return None
+    if ratio >= 1:                      # la deuda ya supera la garantía: peligro con o sin límite
+        return "peligro"
+    if ltv_max:
+        if ratio > ltv_max:
+            return "peligro"
+        uso = ratio / ltv_max
+        return "alto" if uso >= 0.9 else "medio" if uso >= 0.75 else "bajo"
+    return "alto" if ratio >= 0.85 else "medio" if ratio >= 0.7 else "bajo"
+
+
+def calendario(p, hoy, n=12):
+    """Próximas n cuotas y el saldo al cierre de cada año (para el gráfico de deuda)."""
+    filas = cuadro(p)
+    if p.get("estado") == "liquidada":
+        return {"proximas": [], "futuro": [], "saldoAnual": []}
+    pend = [r for r in filas if _fecha(r["fecha"]) > hoy]
+    anual = {}
+    for r in filas:
+        anual[r["fecha"][:4]] = r["pendiente"]
+    return {"proximas": pend[:n],
+            "futuro": [{"fecha": r["fecha"], "pendiente": r["pendiente"]} for r in pend],
+            "saldoAnual": [{"ano": int(a), "saldo": s} for a, s in sorted(anual.items()) if int(a) >= hoy.year]}
+
+
+def flujos(cfg, hoy):
+    """
+    Flujos de caja de los préstamos desde el punto de vista de tu capital propio:
+    entra el dinero recibido y salen las cuotas pagadas (y la liquidación, si la hay).
+    """
+    out = []
+    for p in cfg.get("pignoraciones", []):
+        ini = _fecha(p["fecha"])
+        if ini > hoy:
+            continue
+        out.append((ini, float(p.get("recibido") or p["principal"])))
+        corte = _fecha(p["fechaLiquidacion"]) if p.get("estado") == "liquidada" and p.get("fechaLiquidacion") else hoy
+        for r in cuadro(p):
+            f = _fecha(r["fecha"])
+            if ini < f <= min(corte, hoy):
+                out.append((f, -float(r["cuota"])))
+        if p.get("estado") == "liquidada" and p.get("importeLiquidacion") is not None and corte <= hoy:
+            out.append((corte, -float(p["importeLiquidacion"])))
+    return out
+
+
+def deuda_total(cfg, hoy):
+    """Capital pendiente de todas las pignoraciones vigentes."""
+    return round(sum(saldo_a(p, hoy) for p in cfg.get("pignoraciones", [])), 2)
 
 
 def marcas(cfg, hoy):

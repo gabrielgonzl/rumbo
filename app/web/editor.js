@@ -1004,30 +1004,8 @@
     const tut = $("#ayudaTutorial");
     if (tut) tut.href = K.tutorial || K.canal + "/videos";
 
-    if (!D || D.modo !== "propio" || !(D.productos || []).length) return;
-    let est = {};
-    try { est = JSON.parse(recuerda.lee("patrimonio.canal") || "{}"); } catch (e) { est = {}; }
-    const MES = 30 * 24 * 3600 * 1000;
-    if (est.hecho || (est.veces || 0) >= 2 || (est.veces === 1 && Date.now() - (est.ultima || 0) < MES)) return;
-    const guarda = cambios => recuerda.guarda("patrimonio.canal", JSON.stringify({ ...est, ...cambios }));
-
-    setTimeout(() => {
-      if (document.body.classList.contains("video") || $("#modal").open) return;
-      const t = document.createElement("div");
-      t.className = "tarjetaCanal";
-      t.setAttribute("role", "dialog");
-      t.innerHTML = `<button class="x" aria-label="Cerrar">×</button>
-        <b>¿Te está siendo útil?</b>
-        <p>Esta herramienta es gratis. La hago para mi canal de YouTube, donde cuento cómo invierto:
-          suscribirte es la mejor forma de apoyarla. — ${esc(K.autor)}</p>
-        <div class="botones"><a class="btn prim" href="${esc(K.suscribir)}" target="_blank" rel="noopener">▶ Suscribirme</a>
-          <button class="ahoraNo">Ahora no</button></div>`;
-      const cierra = () => { t.remove(); guarda({ veces: (est.veces || 0) + 1, ultima: Date.now() }); };
-      t.querySelector(".x").onclick = cierra;
-      t.querySelector(".ahoraNo").onclick = cierra;
-      t.querySelector("a").onclick = () => { guarda({ hecho: true }); setTimeout(() => t.remove(), 300); };
-      document.body.appendChild(t);
-    }, 6000);
+    // La tarjeta flotante «¿Te está siendo útil?» se ha retirado: tapaba contenido. El crédito del
+    // autor sigue en el pie y en Ayuda.
   })();
 
   window.Editor = {

@@ -125,7 +125,11 @@ def producto(cfg, pid):
 
 
 def texto(v, maximo=200):
-    return str(v).strip()[:maximo] if v is not None else ""
+    """Texto de usuario: recortado y sin < ni >. Los nombres acaban en páginas HTML (también en la
+    web exportada) y una importación con IA no es una fuente fiable."""
+    if v is None:
+        return ""
+    return str(v).replace("<", "").replace(">", "").strip()[:maximo]
 
 
 # ---------------------------------------------------------------- productos

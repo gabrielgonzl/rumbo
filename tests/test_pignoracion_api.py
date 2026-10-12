@@ -43,6 +43,7 @@ def cuadro_myinvestor_xlsx(n=120, principal=10000.0, tin=5.0, primero=dt.date(20
 
 class ConPignoracion(unittest.TestCase):
     def setUp(self):
+        servidor.DATOS = _TMP          # el módulo se importa una sola vez por proceso de tests
         for n in os.listdir(_TMP):
             p = os.path.join(_TMP, n)
             if os.path.isfile(p):

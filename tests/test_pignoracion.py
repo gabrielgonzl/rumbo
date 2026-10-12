@@ -102,6 +102,42 @@ class Derivados(unittest.TestCase):
         cash = [(v["fecha"], v["valor"]) for v in vals if v["producto"].endswith("_efectivo")]
         self.assertEqual(cash, [("2026-09-23", 10000.0), ("2026-09-28", 0.0)])
 
+    def test_calendario_completo_para_la_proyeccion(self):
+        cfg = {"productos": [{"id": "a", "corto": "A"}, {"id": "b", "corto": "B"}], "pignoraciones": [prestamo(ltvMax=80)]}
+        r = pg.resumen(cfg, {"a": 6000, "b": 5000}, D(2026, 10, 12))[0]
+        self.assertEqual(len(r["calendario"]["futuro"]), 120)
+        self.assertEqual(r["calendario"]["futuro"][-1]["pendiente"], 0.0)
+        self.assertEqual(len(r["calendario"]["proximas"]), 12)
+
+    def test_nivel_relativo_al_limite_y_estres(self):
+        cfg = {"productos": [{"id": "a"}, {"id": "b"}], "pignoraciones": [prestamo(ltvMax=80)]}
+        # deuda ~10.000 sobre 11.000 de garantía = 91 %: por encima del límite del 80 %
+        r = pg.resumen(cfg, {"a": 6000, "b": 5000}, D(2026, 10, 12))[0]
+        self.assertTrue(r["superaLimite"])
+        self.assertEqual(r["nivel"], "peligro")
+        self.assertGreater(r["amortizarParaLimite"], 1000)
+        self.assertGreater(r["garantiaAnadirParaLimite"], 1000)
+        self.assertEqual([s["caida"] for s in r["stress"]], [0.1, 0.2, 0.3, 0.4])
+        self.assertTrue(all(s["nivel"] == "peligro" for s in r["stress"]))
+        # con holgura (garantía de 30.000) y el mismo límite: bajo
+        r2 = pg.resumen(cfg, {"a": 15000, "b": 15000}, D(2026, 10, 12))[0]
+        self.assertFalse(r2["superaLimite"])
+        self.assertEqual(r2["nivel"], "bajo")
+        self.assertEqual(r2["amortizarParaLimite"], 0.0)
+
+    def test_nivel_sin_limite_usa_umbrales_genericos(self):
+        self.assertEqual(pg.nivel_riesgo(0.92), "alto")
+        self.assertEqual(pg.nivel_riesgo(0.75), "medio")
+        self.assertEqual(pg.nivel_riesgo(0.4), "bajo")
+        self.assertEqual(pg.nivel_riesgo(0.5, 0.45), "peligro")
+        self.assertEqual(pg.nivel_riesgo(1.02), "peligro")           # deuda mayor que la garantía
+
+    def test_flujos_de_capital_propio(self):
+        f = pg.flujos({"pignoraciones": [prestamo()]}, D(2026, 12, 31))
+        self.assertEqual(f[0], (D(2026, 9, 23), 10000.0))
+        self.assertEqual([round(v, 2) for _, v in f[1:]], [-106.07, -106.07, -106.07])
+        self.assertEqual(pg.deuda_total({"pignoraciones": [prestamo()]}, D(2026, 12, 31)), 9805.98)
+
     def test_no_aparece_antes_de_empezar(self):
         self.assertEqual(pg.derivados({"pignoraciones": [prestamo()]}, D(2026, 9, 1)), ([], []))
 

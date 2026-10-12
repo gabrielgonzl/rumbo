@@ -29,7 +29,8 @@
       anos, modo: "global" | "activo" | "mixto",
       rentGlobal,        // 0.07 = 7 %: modo global y respaldo de las aportaciones
       aportacion,        // € al mes, siempre global (no se atribuye a ningún activo)
-      valorBase          // lo que no son activos con precio (pasivos...): se mantiene fijo
+      valorBase,         // lo que no son activos con precio (pasivos...): se mantiene fijo
+      deuda              // opcional: deuda pendiente al final de cada mes [m0..mN] (se resta del total)
     }
     Devuelve {meses, total[], cartera[], aportaciones[], aportado[], porActivo{id:{rent, final}},
               media, rentAportaciones}
@@ -61,14 +62,15 @@
       cartera.push(v + base);
       aportaciones.push(ap);
       aportado.push(acum);
-      total.push(v + base + ap);
+      total.push(v + base + ap - (e.deuda ? (e.deuda[m] || 0) : 0));
       ap = ap * mensual(rentAport) + e.aportacion;
       acum += e.aportacion;
     }
     e.activos.forEach(a => {
       porActivo[a.id].final = a.valor * Math.pow(1 + porActivo[a.id].rent, e.anos);
     });
-    return { meses: n, total, cartera, aportaciones, aportado, porActivo, media, rentAportaciones: rentAport };
+    return { meses: n, total, cartera, aportaciones, aportado, porActivo, media, rentAportaciones: rentAport,
+             deudaFinal: e.deuda ? (e.deuda[n] || 0) : 0 };
   }
 
   const api = { rentImplicita, mediaCartera, simula };
