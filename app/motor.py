@@ -1121,6 +1121,7 @@ def construir(cfg, carpeta, descargar=True):
     # y al final solo vale lo que queda tras pagar la deuda pendiente.
     f_prest = pignoracion.flujos(cfg, fecha_extracto)
     deuda_pend = pignoracion.deuda_total(cfg, fecha_extracto)
+    principal_prestado = pignoracion.principal_invertido(cfg, fecha_extracto)
     tir_propia = None
     if f_prest and flujos_globales:
         base = [(f, v) for f, v in flujos_globales[:-1]]          # sin el valor final
@@ -1246,7 +1247,7 @@ def construir(cfg, carpeta, descargar=True):
 
         v0, v1 = suma(ant), suma(i_fin)
         ap = sum(flujo_dia[i] for i in idxs)
-        nuevos, detalle = 0.0, {}
+        nuevos, amortiza, detalle = 0.0, 0.0, {}
         for p in todos_p:
             s = p["serie"]
             pv0 = (s[ant] or 0) if ant >= 0 else 0.0
@@ -1257,13 +1258,21 @@ def construir(cfg, carpeta, descargar=True):
             estrena = (ant < 0 or s[ant] is None) and s[i_fin] is not None
             pnuevo = pv1 if (estrena and p.get("aportado") is None) else 0.0
             nuevos += pnuevo
+            # La deuda de una pignoración baja con cada cuota sin que sea mercado: es
+            # amortización del préstamo, un concepto aparte (no es ganancia ni aportación).
+            # Solo la DEUDA: el «dinero recibido» (efectivo derivado) que baja a 0 al invertirse no es amortización.
+            pamort = ((pv1 - pv0 - pnuevo)
+                      if p.get("derivado") == "pignoracion" and p.get("tipoClave") == "deuda" else 0.0)
+            amortiza += pamort
             if pv1 or pv0 or pap:
                 detalle[p["id"]] = {"inicio": r2(pv0), "fin": r2(pv1), "aportado": r2(pap),
-                                    "nuevo": r2(pnuevo), "mercado": r2(pv1 - pv0 - pap - pnuevo)}
+                                    "nuevo": r2(pnuevo), "amortizacionPrestamo": r2(pamort),
+                                    "mercado": r2(pv1 - pv0 - pap - pnuevo - pamort)}
         b = idx_cartera[ant] if ant >= 0 else idx_cartera[i_ini]
         resumen_mensual.append({
             "mes": mes, "inicio": r2(v0), "fin": r2(v1), "aportado": r2(ap),
-            "nuevo": r2(nuevos), "mercado": r2(v1 - v0 - ap - nuevos),
+            "nuevo": r2(nuevos), "amortizacionPrestamo": r2(amortiza),
+            "mercado": r2(v1 - v0 - ap - nuevos - amortiza),
             "rentabilidad": r4(idx_cartera[i_fin] / b - 1) if b else None,
             "porProducto": detalle,
         })
@@ -1376,6 +1385,11 @@ def construir(cfg, carpeta, descargar=True):
             "caidaMaximaMercadoFecha": dd_mer_fecha,
             "tirCapitalPropio": tir_propia,
             "deudaPignoraciones": deuda_pend,
+            # «aportado» incluye el dinero que compraste con un préstamo. dineroPrestado = lo
+            # recibido de las pignoraciones vivas que ya se invirtió (pignoracion.principal_invertido);
+            # capitalPropio = aportado - dineroPrestado: lo que salió de tu bolsillo.
+            "dineroPrestado": principal_prestado,
+            "capitalPropio": round(aportado_total - principal_prestado, 2),
         },
         "aportacionesMensuales": {"meses": meses, "porProducto": por_producto,
                                   "total": total_mes},

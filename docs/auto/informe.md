@@ -2,6 +2,18 @@
 
 > Lo mantiene el orquestador. Sin datos personales. Lo más reciente, arriba.
 
+## Ronda 1 (13/10/2026, lanzada a mano por el usuario)
+
+- **Q2 hecho:** el mercado ya no incluye la amortización del préstamo (`amortizacionPrestamo` por mes y por
+  producto; solo la deuda, no el efectivo recibido). «Mes a mes» enseña la tarjeta «Deuda amortizada» y la columna.
+- **Q3 (parte de cálculo):** `total.dineroPrestado` y `total.capitalPropio`. Falta mostrarlas en KPI/comparador.
+- **V1 hecho:** `tema-carta.css` (tokens, serif editorial, filetes, sin degradados; contraste AA calculado).
+  Nota: los valores del tema claro se oscurecieron respecto a `DIRECCION_VISUAL.md` para cumplir AA.
+- **Seguridad (veto resuelto):** las cifras nuevas (`capitalPropio`, `dineroPrestado`, `amortizacionPrestamo`,
+  `deudaPignoraciones`) se escalan en la web «sin importes»; test.
+- **Verificador (reserva resuelta):** el efectivo derivado ya no cuenta como amortización; test.
+- Estado: 94 tests de Python y 3 de Node en verde.
+
 ## Preparación (13/10/2026)
 
 - Se define la dirección visual (`docs/DIRECCION_VISUAL.md`), el protocolo (`docs/auto/PROTOCOLO.md`),

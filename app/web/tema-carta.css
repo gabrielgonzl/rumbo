@@ -1,0 +1,97 @@
+/* ============================================================
+   tema-carta.css · «Carta de navegación» · Fase 1: tokens y tipografía
+   Se carga DESPUÉS de base.css y rediseno.css y solo redefine variables y presentación.
+   Oscuro («Noche») por defecto; claro («Papel») con :root[data-tema="claro"].
+   Sin fuentes web: pilas de sistema. Contrastes calculados (ver docs/DIRECCION_VISUAL.md):
+   texto ≥ 4,5:1 y elementos gráficos ≥ 3:1 sobre plano y superficies.
+   ============================================================ */
+
+/* ---------------------------------------------- tokens · Noche */
+:root{
+  color-scheme:dark;
+  --plano:#0d1822; --sup:#13222f; --sup2:#192b3a; --sup3:#21374b;
+  --tinta:#ece6d6; --tinta2:#b9c2c9; --tinta3:#93a1ad;
+  --borde:#27384a; --rejilla:#1c2e3d; --eje:#3a4f63; --campo:#6b7f90;
+  --bien:#7bc89c; --mal:#ef8a6f; --aviso:#e3b341; --danger:#ef8a6f;
+  --mar:#5fb3b8; --laton:#d9b36c; --senal:#ef8a6f; --sonar:#7bc89c;
+  --sobre-acento:#0d1822;
+  /* categorías: mar, señal, sonar, latón, ciruela, arena, pizarra, coral + apoyo */
+  --s1:#5fb3b8; --s2:#ef8a6f; --s3:#7bc89c; --s4:#d9b36c;
+  --s5:#b48ac6; --s6:#a89968; --s7:#8fa3bb; --s8:#d9806a;
+  --s9:#6fa8dc; --s10:#b5b65a; --s11:#9fb4d6; --s12:#a9cf55;
+  --radio:8px; --radio-s:6px;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+/* ---------------------------------------------- tokens · Papel */
+:root[data-tema="claro"]{
+  color-scheme:light;
+  --plano:#f3eee1; --sup:#faf7ee; --sup2:#f1ecdc; --sup3:#e9e2cd;
+  --tinta:#14213d; --tinta2:#3b4a63; --tinta3:#55627a;
+  --borde:#cfc6ae; --rejilla:#e2dac3; --eje:#b9af95; --campo:#7f7a68;
+  --bien:#2a6548; --mal:#a63b26; --aviso:#7a5600; --danger:#a63b26;
+  --mar:#1b6670; --laton:#7a5c14; --senal:#a63b26; --sonar:#2a6548;
+  --sobre-acento:#ffffff;
+  --s1:#1b6670; --s2:#a63b26; --s3:#2a6548; --s4:#7a5c14;
+  --s5:#6d4c7d; --s6:#7d6f3a; --s7:#55657a; --s8:#a8523a;
+  --s9:#2a6d9c; --s10:#6b6a2a; --s11:#4f6d8f; --s12:#5f7a1f;
+}
+:root,:root[data-tema="claro"]{
+  --info:var(--mar); --ok:var(--bien); --warn:var(--aviso);
+}
+
+/* ---------------------------------------------- base */
+body{font-family:var(--sans)}
+.top{background:var(--plano);backdrop-filter:none}
+h1,h2,h3{letter-spacing:0}
+
+/* ---------------------------------------------- tipografía: cifras y títulos en serif editorial */
+.hCifra,.kpi .v,.patrim .c .v,.variaciones .v,.compCaja b,.mcKpis .kpi .v,.pig .kpi .v,
+.tarjeta > header h2,.drawerCab h2{
+  font-family:var(--serif);font-variant-numeric:lining-nums tabular-nums;
+}
+.hCifra{font-weight:600;letter-spacing:-.01em}
+.kpi .v,.patrim .c .v,.variaciones .v,.compCaja b,.pig .kpi .v{font-weight:600;letter-spacing:0}
+.tarjeta > header h2,.drawerCab h2{font-weight:600;letter-spacing:0}
+.compCaja.veredicto b{letter-spacing:0}
+/* resto de cifras en sans, siempre tabulares */
+table,.conc .f .p,.estaMes li b{font-variant-numeric:lining-nums tabular-nums}
+
+/* etiquetas y notas al margen: versalitas con tracking */
+.hEtq,.kpi .e,.patrim .c .e,.variaciones .e,.pig .kpi .e,table.dt th,.tabPos th,thead th{
+  font-variant-caps:all-small-caps;text-transform:none;letter-spacing:.08em;font-weight:600;
+}
+.hEtq{font-size:14px}
+.kpi .e,.patrim .c .e,.variaciones .e,.pig .kpi .e{font-size:13px}
+table.dt th{font-size:13px}
+
+/* ---------------------------------------------- forma: radios pequeños, filetes, sin sombras ni degradados */
+.tarjeta,.drawer,.buscador{border-radius:var(--radio)}
+.kpi,.patrim .c,.variaciones .c,.compCaja,.alerta,.chip,.toast,.tablaEnv,.papel,.banner{border-radius:var(--radio)}
+.btn,.segm,.segm button,.buscar,.lateral button,.badge,.pill,.filtro,.imOp,.bItem,.opcion,
+.contenido input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),.contenido select,
+.mForm input,.mForm select,.mForm textarea{border-radius:var(--radio-s)}
+.tarjeta{border-top-color:var(--eje)}
+.drawer{box-shadow:none;border-left:1px solid var(--eje)}
+.toast{box-shadow:none}
+.segm button[aria-pressed="true"],.pildoras input:checked + span{box-shadow:none;border:1px solid var(--borde)}
+.interruptor .pista{border-radius:var(--radio-s)}
+.gtt{box-shadow:none;border:1px solid var(--eje)}
+.drawerVelo{background:color-mix(in srgb,var(--plano) 70%,transparent)}
+@media (max-width:900px){
+  .lateral{background:var(--plano);backdrop-filter:none}
+  .drawer{border-radius:var(--radio) var(--radio) 0 0}
+}
+
+/* barra de progreso: color plano latón */
+.progBarra{border-radius:var(--radio-s)}
+.progRelleno{background:var(--laton);border-radius:var(--radio-s)}
+.buscador{background:var(--sup2)}
+
+/* campos con filete legible (≥ 3:1) */
+.contenido input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+.contenido select,.buscar,.mForm input,.mForm select,.mForm textarea{border-color:var(--campo)}
+
+/* texto sobre acento */
+.btn.prim,.btn.prim:hover,.imOp.sel .ic{color:var(--sobre-acento)}
+.btn.prim:hover{filter:none;background:color-mix(in srgb,var(--info) 88%,var(--tinta))}

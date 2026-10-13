@@ -233,6 +233,24 @@ def deuda_total(cfg, hoy):
     return round(sum(saldo_a(p, hoy) for p in cfg.get("pignoraciones", [])), 2)
 
 
+def principal_invertido(cfg, hoy):
+    """
+    Dinero prestado que ya se ha invertido: suma de lo recibido (o el principal) de las
+    pignoraciones vivas cuyo dinero pasó por el efectivo del préstamo y ya salió de él
+    (`efectivoHasta` informado y no posterior a `hoy`). Ese dinero figura dentro de «aportado»
+    al comprar con él, pero no es capital propio. Sin `efectivoHasta` no se sabe si se invirtió
+    o se gastó fuera del panel, así que no se cuenta.
+    """
+    total = 0.0
+    for p in cfg.get("pignoraciones", []):
+        if not vigente(p, hoy) or p.get("estado") == "liquidada" or not p.get("efectivoHasta"):
+            continue
+        if _fecha(p["efectivoHasta"]) > hoy:
+            continue
+        total += float(p.get("recibido") or p["principal"])
+    return round(total, 2)
+
+
 def marcas(cfg, hoy):
     """{id de producto: [{id, nombre}]} de los activos pignorados ahora mismo."""
     m = {}

@@ -1410,6 +1410,9 @@
     if (r.nuevo) {
       trozos.push(`<span class="pill">de la diferencia, ${G.fmtEur(r.nuevo, 0)} son cuentas que entran al panel</span>`);
     }
+    if (r.amortizacionPrestamo) {
+      trozos.push(`<span class="pill">${G.fmtEur(r.amortizacionPrestamo, 0)} menos de deuda por las cuotas del préstamo</span>`);
+    }
     $("#mesSub").innerHTML = trozos.join('<span style="color:var(--tinta3)">·</span>');
 
     const tarjetas = [
@@ -1419,6 +1422,10 @@
         c: G.css("--s3"), cl: r.mercado >= 0 ? "pos" : "neg"
       },
     ];
+    if (r.amortizacionPrestamo) tarjetas.push({
+      e: "Deuda amortizada", v: G.fmtEur(r.amortizacionPrestamo, 0),
+      n: "lo que has devuelto del préstamo: baja la deuda, no es mercado", c: G.css("--s4")
+    });
     if (r.nuevo) tarjetas.push({
       e: "Nuevo en el panel", v: G.fmtEur(r.nuevo, 0),
       n: "no es dinero nuevo: es que empiezas a seguirlo", c: G.css("--s7")
@@ -1430,7 +1437,8 @@
     // tabla por componente
     const filas = TODOS().map(p => ({ p, d: r.porProducto[p.id] })).filter(x => x.d);
     const hayNuevo = filas.some(x => x.d.nuevo);
-    const colNuevo = hayNuevo ? "<th>Entra al panel</th>" : "";
+    const hayAmort = filas.some(x => x.d.amortizacionPrestamo);
+    const colNuevo = (hayNuevo ? "<th>Entra al panel</th>" : "") + (hayAmort ? "<th>Deuda amortizada</th>" : "");
     $("#mesTabla").innerHTML =
       `<thead><tr><th>Componente</th><th>Al empezar</th><th>Aportaste</th>
         <th>Mercado</th>${colNuevo}<th>Al cerrar</th><th>Variación</th></tr></thead>
@@ -1442,12 +1450,14 @@
           <td>${d.aportado ? G.fmtEur(d.aportado) : "—"}</td>
           <td class="${d.mercado >= 0 ? "pos" : "neg"}">${G.fmtEurSigno(d.mercado)}</td>
           ${hayNuevo ? `<td>${d.nuevo ? G.fmtEur(d.nuevo) : "—"}</td>` : ""}
+          ${hayAmort ? `<td>${d.amortizacionPrestamo ? G.fmtEur(d.amortizacionPrestamo) : "—"}</td>` : ""}
           <td>${G.fmtEur(d.fin)}</td>
           <td class="${var_ >= 0 ? "pos" : "neg"}">${G.fmtEurSigno(var_)}</td></tr>`;
       }).join("")}</tbody>
        <tfoot><tr><td>Total</td><td>${G.fmtEur(r.inicio)}</td><td>${G.fmtEur(r.aportado)}</td>
         <td class="${r.mercado >= 0 ? "pos" : "neg"}">${G.fmtEurSigno(r.mercado)}</td>
         ${hayNuevo ? `<td>${G.fmtEur(r.nuevo)}</td>` : ""}
+        ${hayAmort ? `<td>${G.fmtEur(r.amortizacionPrestamo || 0)}</td>` : ""}
         <td>${G.fmtEur(r.fin)}</td>
         <td class="${cambio >= 0 ? "pos" : "neg"}">${G.fmtEurSigno(cambio)}</td></tr></tfoot>`;
     $("#mesTablaNota").textContent = r.nuevo
