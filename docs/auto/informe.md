@@ -9,6 +9,8 @@
   (`tests/graficos.test.js`) y comprobación estática (`tests/test_graficos_accesibles.py`).
 - Comprobado en la app real con la cartera de demo: 0 SVG sin etiqueta y 0 errores de consola en las pestañas con gráficos.
 - Falta de V3: paleta de 2 tonos y etiquetas directas al final de cada serie.
+- **S1 y S2 hechos** (`alertas.js`): la cuota y «hace N días» se miden contra hoy en la app real y contra la fecha
+  de la valoración en la web exportada; sin ninguna fecha ya no sale «NaN días» (el texto omite el dato). Tests nuevos.
 - Estado: 115 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)

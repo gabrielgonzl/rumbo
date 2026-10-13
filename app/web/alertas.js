@@ -18,6 +18,14 @@
 
   const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / DIA);
 
+  /* Fecha (AAAA-MM-DD) contra la que se mide «hace cuántos días» y «faltan N días».
+     En la app real es hoy, no la fecha de la valoración (que puede ser antigua); en la web
+     exportada (una foto) es la fecha de la valoración; si falta, se usa la que haya. */
+  function referencia(o) {
+    const hoy = o.ahora ? new Date(o.ahora).toISOString().slice(0, 10) : null;
+    return o.estatico ? (o.fechaExtracto || hoy) : (hoy || o.fechaExtracto || null);
+  }
+
   /* Separa los avisos del servidor por tipo (el servidor los manda como texto). */
   function clasificaAvisos(avisos) {
     const sinRed = [], viejos = [], otros = [];
@@ -40,6 +48,7 @@
   function calcula(o) {
     const out = [];
     const estatico = !!o.estatico;
+    const ref = referencia(o);
     (o.pignoraciones || []).filter(x => x.estado === "activa").forEach(x => {
       const clave = claveLtv(x);
       if (x.nivel === "peligro" && x.superaLimite) {
@@ -49,8 +58,8 @@
       } else if (x.nivel === "alto" || x.nivel === "medio") {
         out.push({ tipo: "ltv", sub: "atencion", id: x.id, clave, cl: "warn", ir: "riesgo", pig: x });
       }
-      if (x.proxima && x.proxima.fecha && o.fechaExtracto) {
-        const d = diasEntre(o.fechaExtracto, x.proxima.fecha);
+      if (x.proxima && x.proxima.fecha && ref) {
+        const d = diasEntre(ref, x.proxima.fecha);
         if (d >= 0 && d <= DIAS_CUOTA) {
           out.push({ tipo: "cuota", id: x.id, clave: `cuota:${x.id}:${x.proxima.fecha}`, cl: "info", pig: x, dias: d });
         }
@@ -68,7 +77,7 @@
       hayPrecios = true;
       const peor = c.viejos.reduce((a, v) => v.fecha < a.fecha ? v : a, c.viejos[0]);
       out.push({ tipo: "viejo", clave: "viejo:" + c.viejos.map(v => v.nombre + v.fecha).join(","), cl: "info",
-        nombres: c.viejos.map(v => v.nombre), fecha: peor.fecha, dias: diasEntre(peor.fecha, o.fechaExtracto),
+        nombres: c.viejos.map(v => v.nombre), fecha: peor.fecha, dias: ref ? diasEntre(peor.fecha, ref) : null,
         accion: estatico ? null : "actualizar" });
     }
     // «Precios de hace días» general: solo en la app real (en la web exportada no se puede actualizar,

@@ -39,8 +39,8 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 
 | ID | Tarjeta | Prio | Estado | Dueño | Criterio de aceptación |
 |---|---|---|---|---|---|
-| S1 | `alertas.js`: tratar `fechaExtracto` ausente (hoy daría «hace NaN días») | C | pendiente | disenador-ui | Test con campo ausente |
-| S2 | La cuota se mide contra la fecha de valoración; usar la fecha real de hoy para avisar 7 días antes | B | pendiente | disenador-ui | Test con valoración antigua |
+| S1 | `alertas.js`: tratar `fechaExtracto` ausente (hoy daría «hace NaN días») | C | hecho | disenador-ui | Test con campo ausente |
+| S2 | La cuota se mide contra la fecha de valoración; usar la fecha real de hoy para avisar 7 días antes | B | hecho | disenador-ui | Test con valoración antigua |
 | S3 | Alerta de cuota a 390 px: la ✕ queda sola en una línea | C | pendiente | disenador-ui | Captura sin hueco |
 | S4 | Medidor de LTV sin bandas de zona (sin degradado): recuperar zonas con marcas discretas | B | pendiente | disenador-ui | Zonas legibles en ambos temas |
 | S5 | Pie repite en parte el aviso legal («no se garantiza la exactitud») | C | pendiente | redactor | Una sola mención |

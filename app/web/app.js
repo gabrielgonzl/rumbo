@@ -911,7 +911,7 @@
           `Se usa el último valor guardado.`;
       case "viejo":
         return `Precio desactualizado: <b>${esc(lista(a.nombres))}</b>. El último que tengo es del ${G.fmtFecha(a.fecha)}` +
-          ` (hace ${a.dias} días).`;
+          (a.dias != null ? ` (hace ${a.dias} días).` : ".");
       case "datosViejos":
         return `Los precios son de hace ${a.dias} días. Pulsa «Actualizar precios».`;
     }

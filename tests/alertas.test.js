@@ -48,6 +48,24 @@ assert.equal(run({ pignoraciones: [conCuota("2026-10-13")] }).alertas[0].dias, 0
 assert.deepEqual(tipos(run({ pignoraciones: [conCuota("2026-10-21")] })), []);
 assert.deepEqual(tipos(run({ pignoraciones: [conCuota("2026-10-12")] })), []);
 
+// S2: en la app real la cuota se mide contra HOY, no contra la fecha de la valoración (que puede ser antigua).
+const hoyReal = Date.parse("2026-10-18T12:00:00Z");
+assert.deepEqual(tipos(run({ fechaExtracto: "2026-09-01", ahora: hoyReal, pignoraciones: [conCuota("2026-10-20")] })), ["cuota"]);
+assert.equal(run({ fechaExtracto: "2026-09-01", ahora: hoyReal, pignoraciones: [conCuota("2026-10-20")] }).alertas[0].dias, 2);
+// Con valoración antigua y cuota lejana de hoy, no avisa aunque esté cerca de la valoración.
+assert.deepEqual(tipos(run({ fechaExtracto: "2026-10-15", ahora: hoyReal, pignoraciones: [conCuota("2026-10-20")] })), ["cuota"]);
+assert.deepEqual(tipos(run({ fechaExtracto: "2026-10-15", ahora: Date.parse("2026-10-01T12:00:00Z"), pignoraciones: [conCuota("2026-10-20")] })), []);
+// En la web exportada (una foto) manda la fecha de la valoración.
+assert.deepEqual(tipos(run({ estatico: true, fechaExtracto: "2026-10-15", ahora: hoyReal, pignoraciones: [conCuota("2026-10-20")] })), ["cuota"]);
+assert.deepEqual(tipos(run({ estatico: true, fechaExtracto: "2026-09-01", ahora: hoyReal, pignoraciones: [conCuota("2026-10-20")] })), []);
+
+// S1: sin fechaExtracto no hay «NaN días».
+r = run({ fechaExtracto: undefined, avisos: ["MSCI World: el último precio que tengo es del 2026-09-20 (hace 23 días)"] });
+assert.equal(r.alertas.find(a => a.tipo === "viejo").dias, 23);
+r = run({ fechaExtracto: undefined, ahora: undefined, avisos: ["MSCI World: el último precio que tengo es del 2026-09-20 (hace 23 días)"] });
+assert.equal(r.alertas.find(a => a.tipo === "viejo").dias, null);
+assert.deepEqual(tipos(run({ fechaExtracto: undefined, ahora: undefined, pignoraciones: [conCuota("2026-10-20")] })), []);
+
 // Precio desactualizado y sin conexión.
 const avisos = [
   "MSCI World: el último precio que tengo es del 2026-09-20 (hace 23 días)",
