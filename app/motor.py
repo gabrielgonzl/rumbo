@@ -20,7 +20,7 @@ import urllib.request
 import datetime as dt
 from collections import defaultdict
 
-from . import exposicion, fiscal, pignoracion
+from . import exposicion, fiscal, ingresos, pignoracion
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -1342,6 +1342,11 @@ def construir(cfg, carpeta, descargar=True):
     except Exception as e:      # la orientación fiscal nunca debe tumbar el panel
         aviso(f"No he podido calcular la orientación fiscal: {e}")
         resumen_fiscal = None
+    try:
+        resumen_ingresos = ingresos.calcula(cfg, valores_hoy, fecha_extracto)
+    except Exception as e:      # los ingresos nunca deben tumbar el panel
+        aviso(f"No he podido calcular los ingresos por dividendos: {e}")
+        resumen_ingresos = None
     # Transparencia: lo que hay dentro de los fondos (mayores posiciones), agregado por empresa.
     try:
         transparencia = exposicion.calcula(productos, carpeta, descargar)
@@ -1397,6 +1402,7 @@ def construir(cfg, carpeta, descargar=True):
         "asignacion": cfg.get("asignacion") or {"objetivos": {}},
         "transparencia": transparencia,
         "fiscal": resumen_fiscal,
+        "ingresos": resumen_ingresos,
         "pignoraciones": pignoracion.resumen(cfg, valores_hoy, fecha_extracto),
         "comisiones": comisiones,
         "rentabilidadAnual": rent_anual,

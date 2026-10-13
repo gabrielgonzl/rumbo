@@ -15,6 +15,8 @@ import re
 import secrets
 import sys
 import threading
+import time
+import urllib.parse
 import urllib.request
 import webbrowser
 from urllib.parse import urlsplit
@@ -183,6 +185,39 @@ def cabeceras_de_proteccion(resp):
     if not request.path.startswith("/api/"):
         resp.headers["Cache-Control"] = "no-cache"          # revalidar siempre: el navegador nunca sirve estilos viejos
     return resp
+
+
+# ---------------------------------------------------------------- cotización en vivo
+
+VIVO_TTL = 30.0          # s: no se consulta a terceros más de una vez en este tiempo
+VIVO_TTL_FALLO = 10.0    # s: tras un fallo no se reintenta enseguida
+_vivo_cache = {}         # coin -> (instante monotónico, {"precio","fuente","ts"} o None)
+_vivo_cerrojo = threading.Lock()
+
+
+def _json_url(url, timeout=6):
+    req = urllib.request.Request(url, headers=motor.UA)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read(200_000).decode("utf-8", "replace"))
+
+
+def _consulta_vivo(coin):
+    """Primero CoinGecko y luego, solo para bitcoin, Binance. None si ninguna responde."""
+    fuentes = [("coingecko",
+                "https://api.coingecko.com/api/v3/simple/price?ids="
+                + urllib.parse.quote(coin, safe="") + "&vs_currencies=eur",
+                lambda j: j[coin]["eur"])]
+    if coin == "bitcoin":
+        fuentes.append(("binance", "https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR",
+                        lambda j: float(j["price"])))
+    for nombre, url, extrae in fuentes:
+        try:
+            v = float(extrae(_json_url(url)))
+            if 0 < v < float("inf"):
+                return {"precio": v, "fuente": nombre, "ts": int(time.time())}
+        except Exception:
+            continue
+    return None
 
 
 # ---------------------------------------------------------------- rutas
@@ -554,6 +589,28 @@ def api_reiniciar():
             almacen.guarda(ruta, json.loads(json.dumps(almacen.CARTERA_VACIA)))
         recalcula(descargar="faltan")
     return jsonify(ok=True)
+
+
+@app.get("/api/vivo")
+def api_vivo():
+    """Cotización en vivo de la cripto de la cartera. La consulta el servidor (el navegador no
+    habla con terceros: no se revela su IP ni que tienes BTC). Caché de VIVO_TTL s, compartida
+    por todas las pestañas; los fallos también se recuerdan unos segundos (anti-ráfagas)."""
+    calc = lee_json(ruta_calculado()) or {}
+    vivo = calc.get("vivo") if isinstance(calc, dict) else None
+    coin = vivo.get("coin") if isinstance(vivo, dict) else None
+    if not isinstance(coin, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", coin):
+        return jsonify(ok=False), 404
+    with _vivo_cerrojo:
+        previo = _vivo_cache.get(coin)
+        if previo and time.monotonic() - previo[0] < (VIVO_TTL if previo[1] else VIVO_TTL_FALLO):
+            res = previo[1]
+        else:
+            res = _consulta_vivo(coin)
+            _vivo_cache[coin] = (time.monotonic(), res)
+    if not res:
+        return jsonify(ok=False, error="Sin cotización en vivo."), 502
+    return jsonify(ok=True, precio=res["precio"], fuente=res["fuente"], ts=res["ts"])
 
 
 @app.get("/api/ping")

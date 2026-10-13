@@ -54,6 +54,13 @@ class SinImportes(unittest.TestCase):
         d["fiscal"] = {"anos": [{"ano": 2025, "base": 1234.0, "cuota": 234.0}]}
         self.assertNotIn("fiscal", exportar.sin_importes(d))
 
+    def test_los_ingresos_no_viajan_en_la_web_sin_importes(self):
+        d = self.datos()
+        d["ingresos"] = {"porMes": [{"mes": "2026-01", "total": 40.0, "porProducto": {"a": 40.0}}],
+                         "ultimosDoce": 40.0, "total": {"ultimosDoce": 40.0}}
+        self.assertNotIn("ingresos", exportar.sin_importes(d))
+        self.assertIn("ingresos", d)           # el original no se toca
+
     def test_los_importes_salen_escalados(self):
         out = exportar.sin_importes(self.datos())
         self.assertNotEqual(out["total"]["patrimonio"], 1000.0)

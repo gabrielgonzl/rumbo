@@ -2,6 +2,14 @@
 
 > Lo mantiene el orquestador. Sin datos personales. Lo más reciente, arriba.
 
+## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
+
+- **Q6 hecho:** el navegador ya no habla con CoinGecko ni Binance: `/api/vivo` lo consulta el servidor, con
+  caché de 30 s; la web exportada no consulta nada.
+- **Q8 (cálculo):** `ingresos` (por mes, por año, yield on cost y actual); no viaja en la web «sin importes».
+- **V3 (gráficos) se perdió** con el reinicio; vuelve al tablero.
+- Estado: 113 tests de Python y 4 archivos de Node en verde.
+
 ## Ronda 2 (13/10/2026)
 
 - **Q1 hecho:** la decisión de qué alertas salen y cuándo vive en `app/web/alertas.js` (puro, con tests);

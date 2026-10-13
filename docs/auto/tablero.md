@@ -12,9 +12,9 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 | Q3 | «Aportado»: distinguir capital propio de dinero prestado (C5) en KPI y comparador | A | hecho | ingeniero-calculo | Dos cifras con definición visible; test con préstamo invertido |
 | Q4 | Revisar coherencia de textos: glosario (posición/producto, activos/neto, plusvalía) | B | pendiente | redactor | Un solo término por concepto en UI y README |
 | Q5 | Mensajes de importación (MyInvestor, plantilla, IA): claridad y errores | B | pendiente | redactor + verificador | Cada error dice qué hacer |
-| Q6 | Bitcoin en vivo desde el servidor (`/api/vivo`), no desde el navegador | B | pendiente | ingeniero-calculo | El navegador no llama a terceros; test |
+| Q6 | Bitcoin en vivo desde el servidor (`/api/vivo`), no desde el navegador | B | hecho | ingeniero-calculo | El navegador no llama a terceros; test |
 | Q7 | CSP estricta sin scripts en línea | B | pendiente | disenador-ui + seguridad-privacidad | `Content-Security-Policy` activa, 0 violaciones en consola |
-| Q8 | Dividendos e ingresos: pantalla y cálculo (yield on cost) | C | pendiente | ingeniero-calculo + disenador-ui | Ingresos por mes/año con tests |
+| Q8 | Dividendos e ingresos: pantalla y cálculo (yield on cost) | C | en curso (cálculo hecho; falta la pantalla) | ingeniero-calculo + disenador-ui | Ingresos por mes/año con tests |
 | Q9 | Alertas configurables (umbral de concentración, LTV, desviación de asignación) | C | pendiente | disenador-ui | Umbrales guardados en la cartera con migración v3 |
 | Q10 | Rendimiento de `datos.js` (tamaño) y repintados | C | pendiente | ingeniero-calculo | Medido antes/después |
 
@@ -24,7 +24,7 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 |---|---|---|---|---|---|
 | V1 | Fase 1: tokens y tipografía (claro/oscuro) en `tema-carta.css` | A | hecho | disenador-ui | Contraste AA; sin cambios de HTML; tests verdes |
 | V2 | Fase 2: componentes (hoja, rúbrica, KPI, alertas al margen, tablas, badges) | A | hecho | disenador-ui | Capturas 390/1280 en ambos temas sin desbordes |
-| V3 | Fase 3: gráficos (paleta 2 tonos, cuadrícula, etiquetas directas, tabla alternativa) | B | pendiente | disenador-ui | `aria-label` en todos los SVG |
+| V3 | Fase 3: gráficos (paleta 2 tonos, cuadrícula, etiquetas directas, tabla alternativa) | B | pendiente (el primer intento se perdió con un reinicio) | disenador-ui | `aria-label` en todos los SVG |
 | V4 | Fase 4: composición del Resumen y estados vacíos con rosa de los vientos | B | pendiente | disenador-ui | Las 3 preguntas se responden sin scroll a 1280×800 |
 | V5 | Fase 5: auditoría de contraste y capturas de referencia | B | pendiente | verificador | Informe de contraste sin fallos |
 
@@ -44,3 +44,10 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 | S3 | Alerta de cuota a 390 px: la ✕ queda sola en una línea | C | pendiente | disenador-ui | Captura sin hueco |
 | S4 | Medidor de LTV sin bandas de zona (sin degradado): recuperar zonas con marcas discretas | B | pendiente | disenador-ui | Zonas legibles en ambos temas |
 | S5 | Pie repite en parte el aviso legal («no se garantiza la exactitud») | C | pendiente | redactor | Una sola mención |
+
+## Nube
+
+| ID | Tarjeta | Prio | Estado | Dueño | Criterio de aceptación |
+|---|---|---|---|---|---|
+| N1 | Acceso con clave y sesión segura para despliegue en la nube | A | en curso | ingeniero-calculo + seguridad-privacidad | Sin clave no se sirve nada salvo `/login`; tests |
+| N2 | Despliegue en GitHub Codespaces (privado) y guía para Fly.io/Render | A | en curso | orquestador | Arranca con un clic; datos fuera de git |

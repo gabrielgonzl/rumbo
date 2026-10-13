@@ -1855,20 +1855,16 @@
 
   /* ---------------------------------------------- bitcoin en vivo */
   async function traeBtc() {
-    const coin = D.vivo.coin || "bitcoin";
-    const fuentes = [
-      [`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(coin)}&vs_currencies=eur`, j => j[coin] && j[coin].eur],
-    ];
-    if (coin === "bitcoin") fuentes.push(["https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR", j => parseFloat(j.price)]);
-    for (const [url, extrae] of fuentes) {
-      try {
-        const r = await fetch(url, { cache: "no-store" });
-        if (!r.ok) continue;
-        const v = extrae(await r.json());
-        if (v && isFinite(v)) return v;
-      } catch (e) { /* probamos la siguiente */ }
-    }
-    return null;
+    // Lo consulta el servidor de la app (api/vivo): el navegador no habla con terceros.
+    // En la web exportada o abierta como archivo no se consulta nada (cotización a cierre).
+    if (window.ESTATICO || location.protocol === "file:") return null;
+    try {
+      const r = await fetch("api/vivo", { cache: "no-store" });
+      if (!r.ok) return null;
+      const j = await r.json();
+      const v = Number(j && j.precio);
+      return j && j.ok && v > 0 && isFinite(v) ? v : null;
+    } catch (e) { return null; }
   }
   async function actualizaVivo() {
     if (!D.vivo) return;
@@ -2007,8 +2003,10 @@
     irA_.style.marginTop = "24px";
     pintarTab();
   }
-  actualizaVivo();
-  setInterval(actualizaVivo, 60000);
+  if (!window.ESTATICO && location.protocol !== "file:") {
+    actualizaVivo();
+    setInterval(actualizaVivo, 60000);
+  }
 
   // Tras actualizar los precios la página se recarga: se confirma con un aviso.
   try {

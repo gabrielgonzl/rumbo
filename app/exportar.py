@@ -75,6 +75,9 @@ def sin_importes(datos):
     # en la web sin importes no viaja ninguna pignoración.
     out.pop("pignoraciones", None)
     out.pop("fiscal", None)       # ventas, costes y cuotas: importes absolutos sin escalar
+    # Dividendos por mes/año/producto: importes absolutos con claves genéricas (`total`, `ultimosDoce`)
+    # que no están en CAMPOS_DINERO; escalarlas ahí tocaría otros bloques. Más seguro: no viajan.
+    out.pop("ingresos", None)
     if out.get("transparencia"):
         out["transparencia"].pop("total", None)       # el total absoluto delataría el factor de escala
     if out.get("vivo"):
