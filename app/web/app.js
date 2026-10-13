@@ -1183,6 +1183,50 @@
   }
 
   /* ================================================================
+     INGRESOS · dividendos e intereses cobrados (D.ingresos, ver ingresos.py)
+     No viaja en la web exportada: sin importes no hay nada que enseñar.
+     ================================================================ */
+  function pintaIngresos() {
+    const cont = $("#ingresos");
+    if (!cont) return;
+    const I = D.ingresos;
+    if (!I || window.OCULTAR_IMPORTES || window.ESTATICO) { cont.innerHTML = ""; return; }
+    if (!I.porMes.length) {
+      cont.innerHTML = `<section class="tarjeta"><header><h2>Ingresos</h2></header>
+        <p class="vacio">Aún no has anotado ningún dividendo ni interés cobrado.</p></section>`;
+      return;
+    }
+    // Últimos 12 meses naturales, con los meses sin cobro a cero.
+    const fin = (D.fechaExtracto || I.porMes[I.porMes.length - 1].mes).slice(0, 7);
+    let [y, m] = fin.split("-").map(Number);
+    const meses = [];
+    for (let i = 0; i < 12; i++) { meses.unshift(`${y}-${String(m).padStart(2, "0")}`); if (--m === 0) { m = 12; y--; } }
+    const porMes = Object.fromEntries(I.porMes.map(x => [x.mes, x.total]));
+    const T = I.total;
+    const kpi = (e, v, n) => `<div class="kpi"><div class="e">${e}</div><div class="v">${v}</div>${n ? `<div class="n">${n}</div>` : ""}</div>`;
+    const filasProd = I.productos.map(p => `<tr><td>${esc(p.nombre)}</td><td>${G.fmtEur(p.ultimosDoce)}</td>
+      <td>${G.fmtPct(p.yieldOnCost, 2)}</td><td>${G.fmtPct(p.yieldActual, 2)}</td><td>${G.fmtFecha(p.ultimaFecha)}</td></tr>`).join("");
+    const filasAno = I.porAno.slice().reverse().map(a => `<tr><td>${a.ano}${a.ultimosDoce ? " (en curso)" : ""}</td><td>${G.fmtEur(a.total)}</td></tr>`).join("");
+    cont.innerHTML = `
+      <section class="tarjeta" aria-labelledby="ingTit">
+        <header><h2 id="ingTit">Ingresos por dividendos</h2><span class="subt">Lo cobrado en los últimos 12 meses</span></header>
+        <div class="riesgoGrid">
+          ${kpi("Cobrado en 12 meses", G.fmtEur(T.ultimosDoce), "dividendos e intereses")}
+          ${kpi("Sobre lo que pagaste", G.fmtPct(T.yieldOnCostCartera, 2), "yield on cost de la cartera")}
+          ${kpi("Sobre su valor hoy", G.fmtPct(T.yieldActualCartera, 2), "rendimiento actual de la cartera")}
+        </div>
+        <div id="grafIngresos" data-titulo="Ingresos cobrados por mes"></div>
+        <div class="tablaEnv"><table class="dt"><thead><tr><th>Producto</th><th>12 meses</th><th>Sobre coste</th><th>Sobre valor</th><th>Último cobro</th></tr></thead>
+          <tbody>${filasProd}</tbody></table></div>
+        <div class="tablaEnv" style="margin-top:16px"><table class="dt"><thead><tr><th>Año</th><th>Cobrado</th></tr></thead>
+          <tbody>${filasAno}</tbody></table></div>
+      </section>`;
+    G.barrasSimples($("#grafIngresos"), {
+      categorias: meses.map(G.fmtMes), valores: meses.map(k => porMes[k] || 0), formatoY: G.fmtEurCorto, formatoValor: v => v ? G.fmtEurCorto(v) : "", alto: 220, color: G.css("--s1"),
+    });
+  }
+
+  /* ================================================================
      FISCALIDAD · orientación del ahorro (IRPF)
      ================================================================ */
   const fis = { ano: null };
@@ -1904,7 +1948,7 @@
     else if (estado.tab === "fondos") pintaFondos();
     else if (estado.tab === "riesgo") pintaRiesgo();
     else if (estado.tab === "plan") { pintaMeta(); pintaAsignacion(); pintaProyeccion(); pintaMontecarlo(); }
-    else if (estado.tab === "fiscal") pintaFiscal();
+    else if (estado.tab === "fiscal") { pintaIngresos(); pintaFiscal(); }
     else if (estado.tab === "rendimiento") pintaRendimiento();
     else if (estado.tab === "datos" && window.Editor) window.Editor.mostrar();
   }

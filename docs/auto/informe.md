@@ -11,7 +11,11 @@
 - Falta de V3: paleta de 2 tonos y etiquetas directas al final de cada serie.
 - **S1 y S2 hechos** (`alertas.js`): la cuota y «hace N días» se miden contra hoy en la app real y contra la fecha
   de la valoración en la web exportada; sin ninguna fecha ya no sale «NaN días» (el texto omite el dato). Tests nuevos.
-- Estado: 115 tests de Python y 5 archivos de Node en verde.
+- **Q8 hecho (pantalla):** tarjeta «Ingresos por dividendos» al principio de la pestaña Fiscalidad: cobrado en 12 meses,
+  yield on cost y sobre valor, barras de los últimos 12 meses, tabla por producto y por año. Si `datos.ingresos` es
+  null, o en la web exportada / sin importes, no se pinta (el servidor no la envía sin importes). Comprobada en la app
+  real con dividendos añadidos a una copia temporal de la demo: 1280 y 390 px sin desbordes ni errores de consola.
+- Estado: 118 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 
