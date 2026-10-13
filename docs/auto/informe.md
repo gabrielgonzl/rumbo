@@ -2,6 +2,15 @@
 
 > Lo mantiene el orquestador. Sin datos personales. Lo más reciente, arriba.
 
+## Ronda 4 (sesión en la nube)
+
+- **V3 (parte accesibilidad) hecha:** todo SVG de `graficos.js` lleva `role="img"` y `aria-label` con título y
+  resumen (rango de fechas, series, último valor; en reparto, solo porcentajes). Funciones puras con test
+  (`tests/graficos.test.js`) y comprobación estática (`tests/test_graficos_accesibles.py`).
+- Comprobado en la app real con la cartera de demo: 0 SVG sin etiqueta y 0 errores de consola en las pestañas con gráficos.
+- Falta de V3: paleta de 2 tonos y etiquetas directas al final de cada serie.
+- Estado: 115 tests de Python y 5 archivos de Node en verde.
+
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 
 - **Q6 hecho:** el navegador ya no habla con CoinGecko ni Binance: `/api/vivo` lo consulta el servidor, con

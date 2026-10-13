@@ -72,6 +72,46 @@
     n.textContent = s;
     return n;
   }
+  /* -------------------------------------------------- accesibilidad
+     Cada SVG lleva role="img" y un aria-label con titulo + resumen de lo que
+     dibuja. Las funciones de describir* son puras (sin DOM) y tienen test. */
+  function legible(f) {
+    if (typeof f !== "string") return f;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return fmtFecha(f);
+    if (/^\d{4}-\d{2}$/.test(f)) return fmtMes(f);
+    return f;
+  }
+  function descSerie(tipo, desde, hasta, nombres, ultimo) {
+    desde = legible(desde); hasta = legible(hasta);
+    let t = tipo;
+    if (desde && hasta) t += desde === hasta ? ` (${desde})` : `, de ${desde} a ${hasta}`;
+    if (nombres && nombres.length) t += `. Series: ${nombres.join(", ")}`;
+    if (ultimo) t += `. Último valor: ${ultimo}`;
+    return t + ".";
+  }
+  function descReparto(datos, fmt) {
+    const total = datos.reduce((a, d) => a + d.valor, 0);
+    const partes = datos.map(d => `${d.nombre} ${fmtPct(d.valor / total, 0)}`);
+    return `Reparto en ${datos.length} partes: ${partes.join(", ")}.`;
+  }
+  function tituloDe(cont, cfg, porDefecto) {
+    if (cfg && cfg.titulo) return cfg.titulo;
+    if (cont && cont.getAttribute && cont.getAttribute("data-titulo")) return cont.getAttribute("data-titulo");
+    const hoja = cont && cont.closest && cont.closest("section, article, .hoja, .card");
+    const h = hoja && hoja.querySelector("h1, h2, h3");
+    return (h && h.textContent.trim()) || porDefecto;
+  }
+  function etiquetar(svg, cont, cfg, porDefecto, resumen) {
+    const t = tituloDe(cont, cfg, porDefecto);
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", resumen ? `${t}. ${resumen}` : t);
+    return svg;
+  }
+  function ultimoValido(vals) {
+    for (let i = vals.length - 1; i >= 0; i--) if (vals[i] != null) return vals[i];
+    return null;
+  }
+
   function css(nombre) {
     return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
   }
@@ -158,6 +198,7 @@
     const fV = cfg.formatoValor || fmtEur;
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico", role: "img" });
+    etiquetar(svg, cont, cfg, "Evolución", descSerie("Áreas apiladas", fechas[0], fechas[n - 1], series.map(s => s.nombre), fmtEur(totales[n - 1])));
 
     // rejilla
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
@@ -267,6 +308,7 @@
     const y = v => P.t + ih - ((v - esc.min) / (esc.max - esc.min)) * ih;
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Evolución", descSerie("Línea", fechas[0], fechas[n - 1], null, fmtEur(ultimoValido(vals))));
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
       svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), class: "rejilla" }));
       svg.appendChild(txt(P.l - 8, y(v) + 4, cfg.formatoY ? cfg.formatoY(v) : fmtEurCorto(v), "ejeY"));
@@ -373,6 +415,7 @@
     const y = v => P.t + ih - (v / esc.max) * ih;
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Aportaciones por mes", descSerie("Barras apiladas", cats[0], cats[n - 1], series.map(s => s.nombre), fmtEur(totales[n - 1])));
     for (let v = 0; v <= esc.max + 1e-9; v += esc.paso) {
       svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), class: "rejilla" }));
       svg.appendChild(txt(P.l - 8, y(v) + 4, fmtEurCorto(v), "ejeY"));
@@ -446,6 +489,7 @@
     if (!total) { cont.innerHTML = '<p class="vacio">Sin datos.</p>'; return; }
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico donut" });
+    etiquetar(svg, cont, cfg, "Reparto", descReparto(datos));
     let ang = -Math.PI / 2;
     const arcos = [];
     datos.forEach((d, i) => {
@@ -502,6 +546,7 @@
       ab = true;
     });
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "spark" });
+    etiquetar(svg, cont, {}, "Tendencia", descSerie("Minigráfico", null, null, null, null));
     svg.appendChild(el("path", { d: dd, fill: "none", stroke: color, "stroke-width": 1.75, "stroke-linecap": "round", "stroke-linejoin": "round" }));
     cont.appendChild(svg);
   }
@@ -523,6 +568,7 @@
     const max = cfg.max || Math.max(...datos.map(d => d[1]));
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Reparto", `${datos.length} barras: ` + datos.map(d => `${d[0]} ${d[1].toLocaleString("es-ES", { maximumFractionDigits: 2 })} %`).join(", ") + ".");
     datos.forEach((dd, i) => {
       const yy = i * filaAlto + 3;
       const ancho = Math.max((dd[1] / max) * iw, 2);
@@ -559,6 +605,7 @@
     const ancho = Math.max(8, Math.min(paso - 18, 64));
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Barras", `${n} barras: ` + cats.map((c, i) => `${c} ${vals[i] == null ? "—" : fY(vals[i])}`).join(", ") + ".");
     const esc = escalaBonita(max, min);
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
       if (v < min || v > max) continue;
@@ -613,6 +660,7 @@
     const y = v => P.t + ih - ((v - esc.min) / (esc.max - esc.min)) * ih;
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Comparación", descSerie("Líneas", fechas[0], fechas[n - 1], series.map(s => s.nombre), null));
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
       svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), class: "rejilla" }));
       svg.appendChild(txt(P.l - 8, y(v) + 4, fY(v), "ejeY"));
@@ -699,6 +747,7 @@
     const ancho = Math.max(3, (Math.min(paso - 8, 54) - hueco * (m - 1)) / m);
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Barras agrupadas", descSerie("Barras agrupadas", cats[0], cats[n - 1], series.map(s => s.nombre), null));
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
       svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), class: "rejilla" }));
       svg.appendChild(txt(P.l - 8, y(v) + 4, fY(v), "ejeY"));
@@ -760,6 +809,7 @@
   global.G = {
     fmtEur, fmtEurCorto, fmtPct, fmtPctSigno, fmtEurSigno, fmtFecha, fmtFechaCorta, fmtMes, nfNum: nfUnidades,
     areaApilada, lineaConEventos, barrasApiladas, donut, mini, escalaBonita, css,
-    barrasHorizontales, barrasSimples, multiLinea, barrasAgrupadas
+    barrasHorizontales, barrasSimples, multiLinea, barrasAgrupadas,
+    descSerie, descReparto
   };
 })(window);

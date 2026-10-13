@@ -24,7 +24,7 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 |---|---|---|---|---|---|
 | V1 | Fase 1: tokens y tipografía (claro/oscuro) en `tema-carta.css` | A | hecho | disenador-ui | Contraste AA; sin cambios de HTML; tests verdes |
 | V2 | Fase 2: componentes (hoja, rúbrica, KPI, alertas al margen, tablas, badges) | A | hecho | disenador-ui | Capturas 390/1280 en ambos temas sin desbordes |
-| V3 | Fase 3: gráficos (paleta 2 tonos, cuadrícula, etiquetas directas, tabla alternativa) | B | pendiente (el primer intento se perdió con un reinicio) | disenador-ui | `aria-label` en todos los SVG |
+| V3 | Fase 3: gráficos (paleta 2 tonos, cuadrícula, etiquetas directas, tabla alternativa) | B | en curso (hecho: `aria-label` en los 10 SVG, con test; falta paleta de 2 tonos y etiquetas directas) | disenador-ui | `aria-label` en todos los SVG |
 | V4 | Fase 4: composición del Resumen y estados vacíos con rosa de los vientos | B | pendiente | disenador-ui | Las 3 preguntas se responden sin scroll a 1280×800 |
 | V5 | Fase 5: auditoría de contraste y capturas de referencia | B | pendiente | verificador | Informe de contraste sin fallos |
 
