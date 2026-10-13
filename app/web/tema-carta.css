@@ -95,3 +95,81 @@ table.dt th{font-size:13px}
 /* texto sobre acento */
 .btn.prim,.btn.prim:hover,.imOp.sel .ic{color:var(--sobre-acento)}
 .btn.prim:hover{filter:none;background:color-mix(in srgb,var(--info) 88%,var(--tinta))}
+
+/* ============================================================
+   Fase 2 · componentes (solo aspecto: no cambia layout ni textos)
+   ============================================================ */
+
+/* ---------------------------------------------- tarjeta «hoja» con cabecera en rúbrica */
+.tarjeta{border-top:2px solid var(--eje)}
+.tarjeta > header{padding-bottom:10px;border-bottom:1px solid var(--borde)}
+
+/* ---------------------------------------------- KPI en rúbrica */
+.kpi,.patrim .c,.variaciones .c,.mcKpis .kpi,.riesgoGrid .kpi,.pig .kpi{
+  background:transparent;border:0;border-top:2px solid color-mix(in srgb,var(--mar) 55%,transparent);
+  border-radius:0;padding:8px 2px 4px;
+}
+.kpi .e,.patrim .c .e,.variaciones .e{color:var(--tinta2)}
+.kpi .n,.variaciones .n{color:var(--tinta3)}
+
+/* ---------------------------------------------- alertas «al margen» */
+.alerta{
+  border:0;border-left:2px solid var(--eje);border-radius:0;padding:8px 12px;
+  background:color-mix(in srgb,var(--sup) 70%,transparent);
+}
+.alerta.warn{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 6%,transparent)}
+.alerta.danger{border-left-color:var(--danger);background:color-mix(in srgb,var(--danger) 6%,transparent)}
+.alerta.info{border-left-color:var(--info);background:color-mix(in srgb,var(--info) 6%,transparent)}
+.alerta .ico{opacity:.85;color:var(--tinta2)}
+.alerta.warn .ico{color:var(--warn)} .alerta.danger .ico{color:var(--danger)} .alerta.info .ico{color:var(--info)}
+.alerta .acciones .btn,.alerta .acc .btn{padding:3px 9px;font-size:12.5px;min-height:30px}
+
+/* ---------------------------------------------- tablas con filetes */
+.tablaEnv{border-width:1px 0;border-radius:0;border-color:var(--borde)}
+table.dt th{
+  background:var(--sup);color:var(--tinta2);border-bottom:1px solid var(--eje);
+}
+table.dt td{border-top:1px solid var(--rejilla);font-variant-numeric:lining-nums tabular-nums}
+table.dt tbody tr:first-child td{border-top:0}
+table.dt tbody tr:hover,table.tabPos tbody tr.fila:hover{background:var(--sup2)}
+table.dt tfoot td,.filaTotal td{border-top:3px double var(--eje);font-weight:650}
+table.dt th.orden:hover{color:var(--tinta)}
+table.tabPos tr.grupo td{letter-spacing:.04em}
+
+/* ---------------------------------------------- badges, píldoras y segmentados */
+.badge,.pill{background:transparent;border-color:var(--borde);color:var(--tinta2)}
+.badge.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 7%,transparent);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.badge.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 7%,transparent);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.badge.danger{color:var(--danger);background:color-mix(in srgb,var(--danger) 7%,transparent);border-color:color-mix(in srgb,var(--danger) 50%,transparent)}
+.pill.vivo{background:transparent}
+.segm{background:transparent;border-color:var(--borde);padding:0;gap:0}
+.segm button{color:var(--tinta2);border-radius:0;padding:6px 12px}
+.segm button:first-child{border-radius:var(--radio-s) 0 0 var(--radio-s)}
+.segm button:last-child{border-radius:0 var(--radio-s) var(--radio-s) 0}
+.segm button[aria-pressed="true"]{
+  background:var(--sup2);color:var(--tinta);font-weight:700;border:0;box-shadow:inset 0 -2px 0 var(--laton);
+}
+.filtro{background:transparent}
+.filtro[aria-pressed="true"]{color:var(--tinta);border-color:var(--eje);box-shadow:inset 0 -2px 0 var(--laton)}
+
+/* ---------------------------------------------- navegación lateral */
+.lateral button{color:var(--tinta2);border-radius:0}
+.lateral button:hover{background:var(--sup2);color:var(--tinta)}
+.lateral button[aria-selected="true"]{
+  background:var(--sup2);color:var(--tinta);box-shadow:inset 3px 0 0 var(--laton);
+}
+@media (max-width:900px){
+  .lateral button[aria-selected="true"]{
+    background:transparent;text-decoration:underline;text-decoration-color:var(--laton);
+    text-decoration-thickness:2px;text-underline-offset:5px;
+  }
+}
+
+/* ---------------------------------------------- medidor de LTV: trazo fino, sin degradado */
+.medidor .pista{
+  height:6px;border-radius:0;background:var(--sup3);border:0;
+  border-top:1px solid var(--eje);border-bottom:1px solid var(--eje);
+}
+.medidor .nivel{border-radius:0;min-width:3px}
+.medidor .marca{top:-7px;bottom:-7px;width:2px;border-radius:0;background:var(--tinta)}
+.medidor .marcaEt{color:var(--tinta2);top:22px}

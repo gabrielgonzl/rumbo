@@ -91,11 +91,17 @@
     const veredicto = igual ? `Vas prácticamente igual que el ${r.nombre}.`
       : dif > 0 ? `Vas ${G.fmtEur(Math.abs(dif), 0)} por delante del ${r.nombre} (${G.fmtPctSigno(pct, 1)}).`
       : `Con el ${r.nombre} tendrías ${G.fmtEur(Math.abs(dif), 0)} más (${G.fmtPctSigno(-dif / C.tuValor, 1)}).`;
+    // Con un préstamo, «aportado» incluye el dinero prestado: de tu bolsillo es el capital propio.
+    const puesto = C.aportado[C.aportado.length - 1];
+    const cp = C.capitalPropio != null ? C.capitalPropio : D.total.capitalPropio;
+    const propio = cp != null && Math.abs(cp - puesto) > 0.5;
+    const bolsillo = propio ? cp : puesto;
     const caja = (et, v, extra, cls = "") => `<div class="compCaja ${cls}"><span>${et}</span><b>${v}</b>${extra ? `<small>${extra}</small>` : ""}</div>`;
     $("#compTitular").innerHTML =
       caja("Tú tienes hoy", G.fmtEur(C.tuValor, 0), `TIR ${G.fmtPctSigno(C.tuTir, 1)}`) +
       caja(`Con el ${r.nombre} tendrías`, G.fmtEur(r.valor, 0), `TIR ${G.fmtPctSigno(r.tir, 1)}`) +
-      caja("Has puesto de tu bolsillo", G.fmtEur(C.aportado[C.aportado.length - 1], 0), "compras menos ventas") +
+      caja("Has puesto de tu bolsillo", G.fmtEur(bolsillo, 0),
+        propio ? "compras menos ventas, sin el dinero prestado" : "compras menos ventas") +
       caja("Veredicto", veredicto, "", "veredicto");
     G.multiLinea($("#grafComparacion"), {
       fechas: D.fechas, alto: 300,
@@ -328,7 +334,10 @@
     const caidaFecha = twr ? D.total.caidaMaximaTwrFecha : m.caidaFecha;
     const prest = (D.pignoraciones || []).find(x => x.estado === "activa" && x.ratio != null);
     const kpis = [
-      { e: "Aportado", v: G.fmtEur(m.aportado, 0), n: `${m.numAportaciones} aportaciones` },
+      { e: "Aportado", v: G.fmtEur(m.aportado, 0),
+        n: sinFiltro && D.total.dineroPrestado > 0 && D.total.capitalPropio != null
+          ? `de tu bolsillo: ${G.fmtEur(D.total.capitalPropio, 0)} · prestado: ${G.fmtEur(D.total.dineroPrestado, 0)}`
+          : `${m.numAportaciones} aportaciones` },
       {
         e: "Plusvalía latente", v: G.fmtEurSigno(m.plusvalia),
         n: m.rentabilidad != null ? G.fmtPctSigno(m.rentabilidad) + " sobre el coste" : "sin coste registrado",
@@ -630,7 +639,7 @@
     if (clave !== asig.clave) {
       asig.clave = clave;
       el.innerHTML = `
-        <div class="alerta info" style="margin-bottom:14px">${ICO_INFO}<div>El reparto <b>no vende nada</b>: la aportación del mes va a los grupos que están por debajo de su objetivo.
+        <div class="subt" style="margin-bottom:14px"><div>El reparto <b>no vende nada</b>: la aportación del mes va a los grupos que están por debajo de su objetivo.
           Los grupos salen del campo «Grupo para la asignación» de cada producto (Datos → Productos); si está vacío, se agrupan por tipo de activo.
           ${gruposAsignacion().every(g => !g.conGrupo) ? "<b>Aún no has puesto grupos propios:</b> ponlos para definir un reparto como «Renta variable 80 % / Liquidez 20 %»." : ""}</div></div>
         <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px">
@@ -869,29 +878,6 @@
   const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
   const lista = arr => arr.length > 2 ? arr.slice(0, -1).join(", ") + " y " + arr[arr.length - 1] : arr.join(" y ");
 
-  function avisosAmigables() {
-    const sinRed = [], viejos = [], otros = [];
-    (D.avisos || []).forEach(a => {
-      let m;
-      if ((m = /^(.+?): sin conexion y sin cache/.exec(a))) sinRed.push(nombreDeCodigo(m[1]));
-      else if ((m = /^(.+?): el último precio que tengo es del (\d{4}-\d{2}-\d{2})/.exec(a))) viejos.push({ nombre: m[1], fecha: m[2] });
-      else otros.push(a);
-    });
-    const out = [];
-    if (sinRed.length) {
-      out.push({ tipo: "sinRed", clave: "sinRed:" + sinRed.join(","),
-        t: `No he podido descargar el precio de <b>${esc(lista(sinRed))}</b> (sin conexión con la fuente). Se usa el último valor guardado.` });
-    }
-    if (viejos.length) {
-      const peor = viejos.reduce((a, v) => v.fecha < a.fecha ? v : a, viejos[0]);
-      out.push({ tipo: "viejo", clave: "viejo:" + viejos.map(v => v.nombre + v.fecha).join(","),
-        t: `Precio desactualizado: <b>${esc(lista(viejos.map(v => v.nombre)))}</b>. El último que tengo es del ${G.fmtFecha(peor.fecha)}` +
-           ` (hace ${diasEntre(peor.fecha, D.fechaExtracto)} días).` });
-    }
-    otros.forEach(a => out.push({ tipo: "otro", clave: "otro:" + a, t: esc(a) }));
-    return out;
-  }
-
   /* ---- Alertas del Resumen: solo lo accionable, y descartables ---- */
   const ocultas = () => { try { return JSON.parse(recuerda.lee("patrimonio.alertasOcultas") || "{}"); } catch (e) { return {}; } };
   function descarta(clave) {
@@ -901,46 +887,43 @@
     recuerda.guarda("patrimonio.alertasOcultas", JSON.stringify(o));
   }
 
-  /*
-    Cuándo sale cada alerta (la clave cambia cuando cambia la situación, y entonces vuelve a salir):
-      · Préstamo: solo si el nivel es de atención o peor (≥ 70 % de la garantía, o relativo a tu límite);
-        se vuelve a mostrar si empeora de nivel o el ratio se mueve más de 5 puntos.
-      · Cuota: en los 7 días previos.
-      · Precios: si falló la descarga o el precio tiene más de 7 días.
-      · Datos: si los precios son de hace más de un día.
-  */
-  function alertas() {
-    const out = [];
-    (D.pignoraciones || []).filter(x => x.estado === "activa").forEach(x => {
-      const clave = `ltv:${x.id}:${x.nivel}:${Math.round((x.ratio || 0) * 20)}`;
-      if (x.nivel === "peligro" && x.superaLimite) {
-        out.push({ clave, cl: "danger", ico: ICO_ALERTA, ir: "riesgo",
-          t: `<b>${esc(x.nombre)}:</b> el préstamo es el ${pctTxt(x.ratio)} de la garantía y tu límite es el ` +
-             `${String(x.ltvMax).replace(".", ",")} %. Para volver al límite habría que amortizar ` +
-             `<b>${G.fmtEur(x.amortizarParaLimite, 0)}</b> o añadir ${G.fmtEur(x.garantiaAnadirParaLimite, 0)} de garantía.` });
-      } else if (x.nivel === "peligro") {
-        out.push({ clave, cl: "danger", ico: ICO_ALERTA, ir: "riesgo",
-          t: `<b>${esc(x.nombre)}:</b> la deuda (${G.fmtEur(x.saldo, 0)}) supera ya el valor de la garantía (${G.fmtEur(x.garantia, 0)}).` });
-      } else if (x.nivel === "alto" || x.nivel === "medio") {
-        out.push({ clave, cl: "warn", ico: ICO_ALERTA, ir: "riesgo",
-          t: `<b>${esc(x.nombre)}:</b> el préstamo es el ${pctTxt(x.ratio)} de la garantía. Si esos activos caen un ` +
-             `${pctTxt(x.caidaHastaLimite != null ? x.caidaHastaLimite : x.caidaHastaIgualar)}, ` +
-             `${x.caidaHastaLimite != null ? "tocarías el límite de tu entidad" : "la garantía igualaría la deuda"}.` });
-      }
-      if (x.proxima && diasHasta(x.proxima.fecha) >= 0 && diasHasta(x.proxima.fecha) <= 7) {
-        out.push({ clave: `cuota:${x.id}:${x.proxima.fecha}`, cl: "info", ico: ICO_INFO,
-          t: `Próxima cuota de <b>${esc(x.nombre)}</b>: ${G.fmtEur(x.proxima.cuota)} el ${G.fmtFecha(x.proxima.fecha)}.` });
-      }
-    });
-    avisosAmigables().filter(a => a.tipo === "sinRed" || a.tipo === "viejo")
-      .forEach(a => out.push({ clave: a.clave, cl: "info", ico: ICO_INFO, t: a.t }));
-    const pa = D.preciosActualizados && /[+-]\d\d:\d\d$|Z$/.test(D.preciosActualizados) ? Date.parse(D.preciosActualizados) : null;
-    if (pa && !window.ESTATICO && Date.now() - pa > 36 * 3600000) {
-      out.push({ clave: "datosViejos:" + D.preciosActualizados.slice(0, 10), cl: "info", ico: ICO_INFO, accion: "actualizar",
-        t: `Los precios son de hace ${Math.round((Date.now() - pa) / 86400000)} días. Pulsa «Actualizar precios».` });
+  /* Texto de cada alerta (qué sale y cuándo lo decide Alertas.calcula, en alertas.js). */
+  function textoAlerta(a) {
+    const x = a.pig;
+    switch (a.tipo) {
+      case "ltv":
+        if (a.sub === "limite") {
+          return `<b>${esc(x.nombre)}:</b> el préstamo es el ${pctTxt(x.ratio)} de la garantía y tu límite es el ` +
+            `${String(x.ltvMax).replace(".", ",")} %. Para volver al límite habría que amortizar ` +
+            `<b>${G.fmtEur(x.amortizarParaLimite, 0)}</b> o añadir ${G.fmtEur(x.garantiaAnadirParaLimite, 0)} de garantía.`;
+        }
+        if (a.sub === "deuda") {
+          return `<b>${esc(x.nombre)}:</b> la deuda (${G.fmtEur(x.saldo, 0)}) supera ya el valor de la garantía (${G.fmtEur(x.garantia, 0)}).`;
+        }
+        return `<b>${esc(x.nombre)}:</b> el préstamo es el ${pctTxt(x.ratio)} de la garantía. Si esos activos caen un ` +
+          `${pctTxt(x.caidaHastaLimite != null ? x.caidaHastaLimite : x.caidaHastaIgualar)}, ` +
+          `${x.caidaHastaLimite != null ? "tocarías el límite de tu entidad" : "la garantía igualaría la deuda"}.`;
+      case "cuota":
+        return `Cuota de <b>${esc(x.nombre)}</b> ${a.dias === 0 ? "hoy" : a.dias === 1 ? "mañana" : "en " + a.dias + " días"}: ` +
+          `${G.fmtEur(x.proxima.cuota)} (${G.fmtFecha(x.proxima.fecha)}). Ten el saldo disponible.`;
+      case "sinRed":
+        return `No he podido descargar el precio de <b>${esc(lista(a.codigos.map(nombreDeCodigo)))}</b> (sin conexión con la fuente). ` +
+          `Se usa el último valor guardado.`;
+      case "viejo":
+        return `Precio desactualizado: <b>${esc(lista(a.nombres))}</b>. El último que tengo es del ${G.fmtFecha(a.fecha)}` +
+          ` (hace ${a.dias} días).`;
+      case "datosViejos":
+        return `Los precios son de hace ${a.dias} días. Pulsa «Actualizar precios».`;
     }
-    const ocultasAhora = window.ESTATICO ? {} : ocultas();
-    return out.filter(a => !ocultasAhora[a.clave]);
+    return "";
+  }
+
+  function alertas() {
+    return Alertas.calcula({
+      pignoraciones: D.pignoraciones, avisos: D.avisos, preciosActualizados: D.preciosActualizados,
+      ahora: Date.now(), fechaExtracto: D.fechaExtracto, estatico: !!window.ESTATICO, demo: D.modo === "demo",
+      ocultas: ocultas(), filtrando: filtrando(),
+    });
   }
 
   function pintaCockpit() {
@@ -958,11 +941,13 @@
       <div class="v ${v == null ? "" : v >= 0 ? "pos" : "neg"}">${v == null ? "—" : G.fmtPctSigno(v, 2)}</div>
       <div class="n">${nota}</div></div>`;
 
-    const al = alertas();
+    const { alertas: al, filtrada } = alertas();
     const esteMes = [];
-    (D.pignoraciones || []).filter(x => x.estado === "activa" && x.proxima).forEach(x =>
+    // La cuota que ya sale como alerta no se repite aquí.
+    const cuotaAvisada = new Set(al.filter(a => a.tipo === "cuota").map(a => a.id));
+    (D.pignoraciones || []).filter(x => x.estado === "activa" && x.proxima && !cuotaAvisada.has(x.id)).forEach(x =>
       esteMes.push({ cuando: G.fmtFechaCorta(x.proxima.fecha), t: `Cuota de ${esc(x.nombre)}: <b>${G.fmtEur(x.proxima.cuota)}</b>` }));
-    const am = D.aportacionesMensuales;
+    const am = D.aportacionesMensuales || { meses: [], total: [] };
     const mesAct = D.fechaExtracto.slice(0, 7);
     const iMes = am.meses.indexOf(mesAct);
     const llevas = iMes >= 0 ? am.total[iMes] : 0;
@@ -972,18 +957,19 @@
         t: llevas >= ritmo * 0.95 ? `Has aportado <b>${G.fmtEur(llevas, 0)}</b>: ya cubres tu ritmo habitual (${G.fmtEur(ritmo, 0)}).`
           : `Llevas <b>${G.fmtEur(llevas, 0)}</b> de tu ritmo habitual de ${G.fmtEur(ritmo, 0)}.` });
     }
-    (D.pignoraciones || []).filter(x => x.estado === "activa" && !x.ltvMax).forEach(x =>
-      esteMes.push({ cuando: "Dato", t: `Anota el <b>límite de LTV</b> de «${esc(x.nombre)}» (en tu contrato) para medir tu margen real.` }));
-    if (D.total.deudaPignoraciones && D.total.tirCapitalPropio != null) {
-      esteMes.push({ cuando: "Dato", t: `Tu TIR sobre el <b>capital propio</b> (descontado el préstamo) es ${G.fmtPctSigno(D.total.tirCapitalPropio, 1)}.` });
+    // Anotar el límite solo se puede en la app; la TIR del capital propio ya está en los indicadores.
+    if (!window.ESTATICO) {
+      (D.pignoraciones || []).filter(x => x.estado === "activa" && !x.ltvMax).forEach(x =>
+        esteMes.push({ cuando: "Dato", t: `Anota el <b>límite de LTV</b> de «${esc(x.nombre)}» (en tu contrato) para medir tu margen real.` }));
     }
 
     el.innerHTML = `
+      ${filtrada ? `<p class="subt" style="margin:0 0 10px">Vista filtrada: esta zona (avisos, patrimonio y rentabilidad reciente) es de toda la cartera.</p>` : ""}
       ${al.length ? `<div class="alertas">${al.map(a => `<div class="alerta ${a.cl}" role="${a.cl === "danger" ? "alert" : "status"}">
-          ${a.ico}<div class="txt">${a.t}</div>
+          ${a.cl === "info" ? ICO_INFO : ICO_ALERTA}<div class="txt">${textoAlerta(a)}</div>
           <div class="acciones">${a.ir ? `<button class="btn" data-ir="${a.ir}">Ver riesgo</button>` : ""}
             ${a.accion === "actualizar" ? `<button class="btn" data-actualizar>Actualizar</button>` : ""}
-            ${window.ESTATICO ? "" : `<button class="btn suave" data-cierra="${esc(a.clave)}" aria-label="Descartar este aviso" title="Descartar: volverá a salir si la situación cambia">✕</button>`}</div>
+            ${!a.descartable ? "" : `<button class="btn suave" data-cierra="${esc(a.clave)}" aria-label="Descartar este aviso" title="Descartar: volverá a salir si la situación cambia">✕</button>`}</div>
         </div>`).join("")}</div>` : ""}
       <div class="cockGrid">
         <div>
@@ -1150,7 +1136,7 @@
         ${activa ? `<span class="badge ${NIVEL_CL[x.nivel] || ""}">${nivelEt(x.nivel, x.ltvMax)}</span>` : '<span class="badge ok">Liquidada</span>'}
         ${x.entidad ? `<span class="subt">${esc(x.entidad)}</span>` : ""}
         <div class="sep"></div>
-        <button class="btn" data-gestion>Gestionar en Datos</button>
+        ${window.ESTATICO ? "" : '<button class="btn" data-gestion>Gestionar en Datos</button>'}
       </header>
       ${activa ? `<div class="riesgoGrid">
           ${kpi("Préstamo / garantía", pctTxt(x.ratio), x.ltvMax ? "límite " + String(x.ltvMax).replace(".", ",") + " %" : "límite sin indicar")}
@@ -1407,12 +1393,6 @@
       trozos.push(`rentabilidad de la cartera
         <span class="${r.rentabilidad >= 0 ? "pos" : "neg"} fuerte">${G.fmtPctSigno(r.rentabilidad)}</span>`);
     }
-    if (r.nuevo) {
-      trozos.push(`<span class="pill">de la diferencia, ${G.fmtEur(r.nuevo, 0)} son cuentas que entran al panel</span>`);
-    }
-    if (r.amortizacionPrestamo) {
-      trozos.push(`<span class="pill">${G.fmtEur(r.amortizacionPrestamo, 0)} menos de deuda por las cuotas del préstamo</span>`);
-    }
     $("#mesSub").innerHTML = trozos.join('<span style="color:var(--tinta3)">·</span>');
 
     const tarjetas = [
@@ -1460,8 +1440,7 @@
         ${hayAmort ? `<td>${G.fmtEur(r.amortizacionPrestamo || 0)}</td>` : ""}
         <td>${G.fmtEur(r.fin)}</td>
         <td class="${cambio >= 0 ? "pos" : "neg"}">${G.fmtEurSigno(cambio)}</td></tr></tfoot>`;
-    $("#mesTablaNota").textContent = r.nuevo
-      ? `Incluye ${G.fmtEur(r.nuevo, 0)} que entran al seguimiento este mes.` : "";
+    $("#mesTablaNota").textContent = "";
 
     // histórico de esfuerzo vs mercado
     const ult = rm.slice(-18);
@@ -1775,8 +1754,10 @@
 
   /* ---------------------------------------------- avisos y pie */
   function pintaComun() {
-    $("#avisos").innerHTML = avisosAmigables()
-      .map(a => `<div class="av"><span>⚠</span><span>${a.t}</span></div>`).join("");
+    // Los avisos de precio (sin conexión, desactualizado) ya salen como alerta en el Resumen, con su
+    // botón; el pie solo guarda los avisos generales.
+    $("#avisos").innerHTML = Alertas.clasificaAvisos(D.avisos).otros
+      .map(a => `<div class="av"><span>⚠</span><span>${esc(a)}</span></div>`).join("");
     const pa = D.preciosActualizados;
     const fuentes = [...new Set(D.productos.map(p => p.fuentePrecio).filter(Boolean))];
     $("#pie").innerHTML =
@@ -1784,7 +1765,6 @@
        datos valorados a ${G.fmtFecha(D.fechaExtracto)} ·
        ${D.total.diasInvertido} días invertido.<br>
        Fuentes de precios: ${fuentes.join(", ") || "ninguna"}. En la pestaña Productos verás la de cada uno.<br>
-       <b>Aviso:</b> herramienta informativa. No es asesoramiento financiero ni una recomendación de compra o venta.
        Los precios vienen de servicios públicos gratuitos y pueden tener errores o retrasos: no se garantiza su exactitud.`;
     if ($("#bannerDemo")) $("#bannerDemo").hidden = D.modo !== "demo";
     const K = window.CANAL;
@@ -2035,7 +2015,7 @@
     const t = JSON.parse(sessionStorage.getItem("rumbo.toast") || "null");
     if (t) {
       sessionStorage.removeItem("rumbo.toast");
-      toast("Precios actualizados." + (t.n ? ` Con ${t.n} ${t.n === 1 ? "aviso" : "avisos"}: míralos al final de la página.` : ""),
+      toast("Precios actualizados." + (t.n ? ` Con ${t.n} ${t.n === 1 ? "aviso" : "avisos"}: míralos en el Resumen y al pie de la página.` : ""),
         { tipo: "ok" });
     }
   } catch (e) { /* da igual */ }

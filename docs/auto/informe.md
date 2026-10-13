@@ -2,6 +2,16 @@
 
 > Lo mantiene el orquestador. Sin datos personales. Lo más reciente, arriba.
 
+## Ronda 2 (13/10/2026)
+
+- **Q1 hecho:** la decisión de qué alertas salen y cuándo vive en `app/web/alertas.js` (puro, con tests);
+  sin duplicados entre Resumen, «Este mes» y pie; alertas descartables; nada de acciones en la web exportada.
+- **Q3 hecho:** KPI «Aportado» y comparador muestran «de tu bolsillo» frente a «prestado».
+- **V2 hecho:** componentes de la «Carta de navegación» (hoja, KPI en rúbrica, alertas al margen, tablas con
+  filetes, badges, navegación).
+- Revisión: seguridad APRUEBA; verificador APRUEBA CON RESERVAS (S1–S5 en el tablero).
+- Estado: 94 tests de Python y 4 archivos de Node en verde.
+
 ## Ronda 1 (13/10/2026, lanzada a mano por el usuario)
 
 - **Q2 hecho:** el mercado ya no incluye la amortización del préstamo (`amortizacionPrestamo` por mes y por

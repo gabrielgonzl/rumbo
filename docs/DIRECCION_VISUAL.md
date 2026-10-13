@@ -39,15 +39,20 @@ Escala: 12 · 13 · 14 · 16 · 20 · 28 · 44–72 (cifra principal con `clamp`
 |---|---|---|---|
 | `--fondo` | `#f3eee1` | `#0d1822` | Lienzo |
 | `--superficie` | `#faf7ee` | `#13222f` | Paneles |
+| `--sup2` | `#f1ecdc` | `#192b3a` | Superficie secundaria (fondo del buscador) |
+| `--sup3` | `#e9e2cd` | `#21374b` | Superficie terciaria (token definido en `tema-carta.css`) |
 | `--tinta` | `#14213d` | `#ece6d6` | Texto principal |
 | `--tinta-2` | `#3b4a63` | `#b9c2c9` | Texto secundario (≥ 4,5:1) |
-| `--tinta-3` | `#5d6b82` | `#93a1ad` | Notas (≥ 4,5:1) |
+| `--tinta-3` | `#55627a` | `#93a1ad` | Notas (≥ 4,5:1) |
 | `--filete` | `#cfc6ae` | `#27384a` | Líneas finas de 1 px |
-| `--mar` | `#1f6f78` | `#5fb3b8` | Acento principal, enlaces, foco |
-| `--latón` | `#8a6a1f` | `#d9b36c` | Acento cálido, objetivos y metas |
-| `--señal` | `#b3402a` | `#ef8a6f` | Pérdida y peligro |
-| `--sonar` | `#2f6e4f` | `#7bc89c` | Ganancia y correcto |
-| `--aviso` | `#8a6200` | `#e3b341` | Atención |
+| `--mar` | `#1b6670` | `#5fb3b8` | Acento principal, enlaces, foco |
+| `--latón` | `#7a5c14` | `#d9b36c` | Acento cálido, objetivos y metas |
+| `--señal` | `#a63b26` | `#ef8a6f` | Pérdida y peligro |
+| `--sonar` | `#2a6548` | `#7bc89c` | Ganancia y correcto |
+| `--aviso` | `#7a5600` | `#e3b341` | Atención |
+
+Valores ajustados para cumplir AA (WCAG 2.1) en todas las superficies. En el tema claro, `--bien` y
+`--mal` usan los mismos valores que `--sonar` y `--señal` (`#2a6548` y `#a63b26`).
 
 Categorías de gráficos: 8 tintas de carta (mar, latón, señal, sonar, ciruela `#6d4c7d`, arena `#a89968`,
 pizarra `#55657a`, coral `#c9715b`) con **dos tonos por tema**; el color identifica la *clase de activo*,
@@ -84,8 +89,9 @@ no el producto (el producto se identifica con etiqueta directa en la línea).
 ## Fases de implementación (cada una publicable)
 
 1. **Tokens y tipografía** (`tema-carta.css` que sustituye a la capa de colores de `rediseno.css`):
-   claro/oscuro, serif en cifras y títulos, filetes. Sin tocar HTML.
+   claro/oscuro, serif en cifras y títulos, filetes. Sin tocar HTML. **Estado: hecha (V1).**
 2. **Componentes**: tarjeta-hoja, KPI en rúbrica, alertas «al margen», tablas con filetes, badges.
+   **Estado: en curso (V2).**
 3. **Gráficos**: paleta de dos tonos, cuadrícula, etiquetas directas, accesibilidad (resumen y tabla).
 4. **Composición**: Resumen en dos columnas, rosa de los vientos, estados vacíos.
 5. **Revisión**: contraste (axe-core o cálculo propio), capturas a 390/768/1280/1920 en ambos temas.

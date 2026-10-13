@@ -351,7 +351,7 @@
   // Con file:// no se puede anadir "?v=": algunos navegadores no encuentran
   // el archivo. Ahi basta con la revalidacion por fecha de modificacion.
   var sello = location.protocol === "file:" ? "" : "?v=" + Date.now();
-  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "metricas.js", "asignacion.js", "montecarlo.js", "app.js", "editor.js"].forEach(function (archivo) {
+  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "metricas.js", "alertas.js", "asignacion.js", "montecarlo.js", "app.js", "editor.js"].forEach(function (archivo) {
     var s = document.createElement("script");
     s.src = archivo + sello;
     s.async = false;

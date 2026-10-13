@@ -56,6 +56,7 @@ Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil
 - **Nunca tocas un archivo a mano**: todo se hace con formularios, con validación y mensajes en castellano llano.
 - **Copias de seguridad automáticas** y exportación del panel a una página web (con opción de **ocultar los importes**).
 - **Modo vídeo** para grabar tu panel, tema claro u oscuro, y **tus datos nunca salen de tu ordenador**.
+- Estilo visual propio «Carta de navegación»: serif editorial en las cifras, filetes finos y paleta de tinta, en tema claro y oscuro.
 
 | | |
 |---|---|
