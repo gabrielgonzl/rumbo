@@ -15,6 +15,7 @@ from app import servidor  # noqa: E402
 
 class ControlDeOrigen(unittest.TestCase):
     def setUp(self):
+        servidor.DATOS = _TMP
         self.c = servidor.app.test_client()
 
     # --- lectura (cross-site script inclusion)

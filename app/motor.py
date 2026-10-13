@@ -20,6 +20,8 @@ import urllib.request
 import datetime as dt
 from collections import defaultdict
 
+from . import pignoracion
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -585,6 +587,12 @@ def construir(cfg, carpeta, descargar=True):
     AVISOS.clear()
     _COTIZACIONES.clear()
 
+    # Las pignoraciones aportan su deuda (y el dinero recibido) como productos derivados.
+    deudas, saldos_deuda = pignoracion.derivados(cfg, hoy())
+    if deudas:
+        cfg = dict(cfg, productos=list(cfg.get("productos", [])) + deudas,
+                   valoraciones=list(cfg.get("valoraciones", [])) + saldos_deuda)
+
     productos_cfg = [dict(p) for p in cfg.get("productos", [])]
     for p in productos_cfg:
         p.setdefault("fuente", "manual")
@@ -938,8 +946,14 @@ def construir(cfg, carpeta, descargar=True):
                 ref = (ref.replace(day=1) - dt.timedelta(days=1)).replace(day=1)
             else:
                 break
-    ult12 = total_mes[-12:] if len(total_mes) >= 12 else total_mes
-    ritmo = round(sum(ult12) / max(len(ult12), 1), 2)
+    # Ritmo: lo aportado en los últimos 12 MESES NATURALES entre 12 (un mes sin aportar cuenta como 0).
+    por_mes = dict(zip(meses, total_mes))
+    ref12 = dt.date(fecha_extracto.year, fecha_extracto.month, 1)
+    claves12 = []
+    for _ in range(12):
+        claves12.append(f"{ref12.year:04d}-{ref12.month:02d}")
+        ref12 = (ref12 - dt.timedelta(days=1)).replace(day=1)
+    ritmo = round(sum(por_mes.get(k, 0) for k in claves12) / 12, 2)
 
     # maxima caida del patrimonio
     pico, dd_max, dd_fecha = 0.0, 0.0, None
@@ -1044,6 +1058,24 @@ def construir(cfg, carpeta, descargar=True):
         return out
 
     idx_cartera = indice_twr(serie_inv, flujo_inv)
+
+    # Peor caída de la RENTABILIDAD (índice TWR): no se ve afectada por aportaciones, ventas ni deuda.
+    pico_i, dd_twr, dd_twr_fecha = 0.0, 0.0, None
+    for i, v in enumerate(idx_cartera):
+        if v is None:
+            continue
+        pico_i = max(pico_i, v)
+        if pico_i > 0 and v / pico_i - 1 < dd_twr:
+            dd_twr, dd_twr_fecha = v / pico_i - 1, eje_iso[i]
+
+    # TIR sobre tu capital propio: el préstamo entra como dinero recibido y sus cuotas como salidas,
+    # y al final solo vale lo que queda tras pagar la deuda pendiente.
+    f_prest = pignoracion.flujos(cfg, fecha_extracto)
+    deuda_pend = pignoracion.deuda_total(cfg, fecha_extracto)
+    tir_propia = None
+    if f_prest and flujos_globales:
+        base = [(f, v) for f, v in flujos_globales[:-1]]          # sin el valor final
+        tir_propia = r4(xirr(base + f_prest + [(fecha_extracto, valor_tir - deuda_pend)]))
 
     def indice_pesos(pesos):
         """Compra y mantener con pesos fijos, base 100."""
@@ -1241,6 +1273,13 @@ def construir(cfg, carpeta, descargar=True):
                     "precioRef": r4(prod_v["nav"]), "btcRef": r2(ref),
                     "fechaRef": prod_v.get("navFecha") or fecha_extracto.isoformat()}
 
+    # Activos en garantía: se marcan para que se vea en todas partes que no se pueden vender.
+    en_garantia = pignoracion.marcas(cfg, fecha_extracto)
+    for p in productos + ser_otros:
+        if p["id"] in en_garantia:
+            p["pignoradoEn"] = en_garantia[p["id"]]
+    valores_hoy = {p["id"]: p["valor"] for p in productos + ser_otros}
+
     datos = {
         "generado": dt.datetime.now().replace(microsecond=0).isoformat(),
         "titular": cfg.get("titular", "Mi patrimonio"),
@@ -1271,10 +1310,15 @@ def construir(cfg, carpeta, descargar=True):
             "diasInvertido": (fecha_extracto - primera).days,
             "caidaMaxima": r4(dd_max),
             "caidaMaximaFecha": dd_fecha,
+            "caidaMaximaTwr": r4(dd_twr),
+            "caidaMaximaTwrFecha": dd_twr_fecha,
+            "tirCapitalPropio": tir_propia,
+            "deudaPignoraciones": deuda_pend,
         },
         "aportacionesMensuales": {"meses": meses, "porProducto": por_producto,
                                   "total": total_mes},
         "objetivo": cfg.get("objetivo"),
+        "pignoraciones": pignoracion.resumen(cfg, valores_hoy, fecha_extracto),
         "comisiones": comisiones,
         "rentabilidadAnual": rent_anual,
         "resumenMensual": resumen_mensual,

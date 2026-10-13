@@ -7,3 +7,5 @@ mis_datos/
 __pycache__/
 *.pyc
 *.tmp
+# Ruta local de tus datos para Docker
+.env

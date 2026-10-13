@@ -70,6 +70,9 @@ def sin_importes(datos):
             am[c] = _escala(am[c], k)
     out["total"]["hitos"] = []
     out["objetivo"] = None
+    # Deuda, cuota, garantía y colchón de un préstamo permitirían deducir el factor de escala:
+    # en la web sin importes no viaja ninguna pignoración.
+    out.pop("pignoraciones", None)
     if out.get("vivo"):
         out["vivo"]["titulos"] = round(datos["vivo"]["titulos"] * k, 6)
     return out
@@ -86,20 +89,18 @@ def pagina(web, datos, ocultar=False, titulo="Mi patrimonio"):
     datos = dict(datos, modo="estatico", avisos=[])
     html = lee("index.html")
 
-    # Fuera lo que solo tiene sentido dentro de la app.
-    html = re.sub(r'\s*<button class="btn" id="btnPrecios".*?</button>', "", html, flags=re.S)
-    html = re.sub(r'\s*<button data-tab="datos".*?</button>', "", html, flags=re.S)
-    html = re.sub(r'\s*<button data-tab="ayuda".*?</button>', "", html, flags=re.S)
-    html = re.sub(r'<div class="banner" id="bannerDemo".*?</div>', "", html, flags=re.S)
-    html = re.sub(r'<div class="panel" id="tab-datos".*?</div></div>', "", html, flags=re.S)
-    html = re.sub(r'<div class="panel" id="tab-ayuda".*?<!-- /ayuda -->', "", html, flags=re.S)
-    html = re.sub(r'<div class="banner" id="bannerVersion".*?</div>', "", html, flags=re.S)
+    # Los estilos van dentro del archivo: la web exportada es un único .html sin peticiones externas.
+    html = re.sub(r'<link rel="stylesheet" href="([^"]+\.css)">',
+                  lambda m: "<style>\n" + lee(m.group(1)) + "\n</style>", html)
+    # Fuera lo que solo tiene sentido dentro de la app. Está marcado en index.html con
+    # <!--solo-app-->…<!--/solo-app-->, así que no depende de la forma del HTML.
+    html = re.sub(r"<!--solo-app-->.*?<!--/solo-app-->", "", html, flags=re.S)
 
     previo = "window.ESTATICO = true;\n"
     if ocultar:
         previo += "window.OCULTAR_IMPORTES = true;\n"
     trozos = [previo + "window.DATOS = " + json.dumps(datos, ensure_ascii=False, separators=(",", ":")) + ";"]
-    trozos += [lee(n) for n in ("canal.js", "graficos.js", "proyeccion.js", "app.js")]
+    trozos += [lee(n) for n in ("canal.js", "graficos.js", "proyeccion.js", "metricas.js", "app.js")]
     scripts = "\n".join("<script>\n" + t.replace("</script>", "<\\/script>") + "\n</script>" for t in trozos)
     html, n = re.subn(r"<script>\s*/\* Carga los scripts.*?</script>", lambda m: scripts, html, flags=re.S)
     if not n:

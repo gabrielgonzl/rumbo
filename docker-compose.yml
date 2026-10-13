@@ -9,7 +9,9 @@ services:
       # Solo tu propio ordenador. NO quites el 127.0.0.1: sin él, tu red podría ver tu cartera.
       - "127.0.0.1:8765:8765"
     volumes:
-      - ./mis_datos:/data          # mismo sitio que usa la app sin Docker: tus datos no se pierden
+      # Carpeta de tus datos. Por defecto ./mis_datos; para sacarla de OneDrive u otra nube, crea un
+      # archivo .env con:  RUMBO_DATOS=C:/Users/tu_usuario/RumboDatos
+      - ${RUMBO_DATOS:-./mis_datos}:/data
     read_only: true                # el sistema de archivos de la imagen no se puede modificar
     tmpfs:
       - /tmp

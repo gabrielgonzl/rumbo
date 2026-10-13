@@ -50,3 +50,10 @@ const c = P.simula({ activos: [A[0], { id: "e", valor: 500, precio: 0, objetivo:
   anos: 1, modo: "mixto", rentGlobal: 0.05, aportacion: 0 });
 cerca(c.porActivo.e.final, 500);
 console.log("proyeccion.test.js: todo bien");
+
+// 9. Deuda: se resta del total y baja con su cuadro; la aportación no la toca.
+const d = P.simula({ activos: [A[0]], anos: 1, modo: "activo", rentGlobal: 0, aportacion: 0,
+  deuda: Array.from({ length: 13 }, (_, m) => 1200 - 100 * m) });
+cerca(d.total[0], 1000 - 1200);
+cerca(d.total[12], 2000 - 0);                 // el activo duplica y la deuda llega a 0
+cerca(d.deudaFinal, 0);

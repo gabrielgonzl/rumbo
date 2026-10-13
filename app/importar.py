@@ -516,3 +516,73 @@ def aplicar(cfg, plan):
 def vista_previa(cfg, plan):
     """El mismo informe que dará aplicar(), sin tocar la cartera de verdad."""
     return aplicar(copy.deepcopy(cfg), plan)
+
+
+# ---------------------------------------------------------------- cuadro de amortización
+
+CAB_CUADRO = {
+    "fecha": ["fecha", "fecha cuota", "fecha de pago", "vencimiento"],
+    "cuota": ["cuota", "cuota total", "pago", "importe cuota"],
+    "intereses": ["intereses", "interes", "intereses cuota"],
+    "amortizado": ["amortizado", "amortizacion", "capital amortizado", "principal", "capital"],
+    "pendiente": ["pendiente amortizar", "pendiente", "capital pendiente", "saldo pendiente", "saldo"],
+}
+
+
+def leer_cuadro(nombre, contenido):
+    """
+    Cuadro de amortización de un préstamo (el de MyInvestor u otro broker) -> (datos, error).
+    Busca la fila de cabecera (Fecha · Cuota · Intereses · Amortizado · Pendiente) en
+    cualquier hoja y deduce principal, interés, número de cuotas y primer pago.
+    """
+    if nombre and nombre.lower().endswith((".xlsx", ".xlsm")):
+        from openpyxl import load_workbook
+        libro = load_workbook(io.BytesIO(contenido), data_only=True, read_only=True)
+        hojas = [[list(f) for f in h.iter_rows(values_only=True)] for h in libro.worksheets]
+    else:
+        texto = decodifica(contenido)
+        lineas = [l for l in texto.splitlines() if l.strip()]
+        if not lineas:
+            return None, "El archivo está vacío."
+        delim = max([";", "\t", ","], key=lineas[0].count) if lineas else ";"
+        hojas = [list(csv.reader(io.StringIO("\n".join(lineas)), delimiter=delim))]
+
+    for filas in hojas:
+        for i, fila in enumerate(filas):
+            cab = [sin_tildes(c) for c in fila]
+            idx = {}
+            for col, alias in CAB_CUADRO.items():
+                for j, c in enumerate(cab):
+                    if c and c in alias and j not in idx.values():
+                        idx[col] = j
+                        break
+            if len(idx) == 5:
+                return _cuadro_desde(filas[i + 1:], idx)
+    return None, ("No encuentro la tabla del cuadro de amortización. Tiene que tener las columnas "
+                  "Fecha, Cuota, Intereses, Amortizado y Pendiente.")
+
+
+def _cuadro_desde(filas, idx):
+    cuadro = []
+    for fila in filas:
+        def celda(k):
+            j = idx[k]
+            return fila[j] if j < len(fila) else None
+        f = lee_fecha(celda("fecha"))
+        if not f:
+            continue
+        v = {k: lee_numero(celda(k)) for k in ("cuota", "intereses", "amortizado", "pendiente")}
+        if any(x is None or x == "error" for x in v.values()):
+            continue
+        cuadro.append({"fecha": f, **{k: round(x, 2) for k, x in v.items()}})
+    if not cuadro:
+        return None, "La tabla no tiene ninguna cuota con fecha e importes legibles."
+    cuadro.sort(key=lambda r: r["fecha"])
+    principal = round(cuadro[0]["pendiente"] + cuadro[0]["amortizado"], 2)
+    interes = round(cuadro[0]["intereses"] * 12 / principal * 100, 2) if principal else 0.0
+    primero = dt.date.fromisoformat(cuadro[0]["fecha"])
+    from .pignoracion import suma_meses
+    return {"cuadro": cuadro, "principal": principal, "interes": interes, "cuotas": len(cuadro),
+            "cuota": cuadro[0]["cuota"], "primerPago": cuadro[0]["fecha"],
+            "fechaEstimada": suma_meses(primero, -1).isoformat(),
+            "interesesTotales": round(sum(r["intereses"] for r in cuadro), 2)}, None

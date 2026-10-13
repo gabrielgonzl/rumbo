@@ -1,0 +1,190 @@
+/* ============================================================
+   rediseno.css · capa de diseño sobre base.css
+   Tokens accesibles, navegación lateral (escritorio) / inferior (móvil),
+   panel de detalle, cabina de resumen, riesgo y componentes comunes.
+   ============================================================ */
+
+/* ---------------------------------------------- tokens */
+:root{
+  --tinta3:#a3a199;                       /* texto secundario: ≥ 4,5:1 sobre las superficies oscuras */
+  --ok:var(--bien); --warn:var(--aviso); --danger:#ff7a7a; --info:var(--s1);
+  --ok-bg:color-mix(in srgb,var(--ok) 14%,transparent);
+  --warn-bg:color-mix(in srgb,var(--warn) 14%,transparent);
+  --danger-bg:color-mix(in srgb,var(--danger) 14%,transparent);
+  --info-bg:color-mix(in srgb,var(--info) 14%,transparent);
+  --foco:0 0 0 3px color-mix(in srgb,var(--info) 55%,transparent);
+  --anchoNav:216px;
+}
+:root[data-tema="claro"]{
+  --tinta3:#625f58;                       /* antes #898781 (3,4:1) */
+  --aviso:#8a6200; --danger:#b3261e;
+}
+:root[data-tema="claro"] .pill.vivo{border-color:color-mix(in srgb,var(--bien) 60%,transparent)}
+
+/* ---------------------------------------------- foco y movimiento */
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{
+  outline:2px solid var(--info);outline-offset:2px;box-shadow:var(--foco);border-radius:8px;
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
+/* ---------------------------------------------- estructura */
+body{min-height:100vh}
+.top{position:sticky;top:0;z-index:40}
+.top .env{padding-top:10px;padding-bottom:10px;max-width:none}
+.topFila{padding-bottom:0}
+.btn .lbl{white-space:nowrap}
+.app{display:grid;grid-template-columns:var(--anchoNav) minmax(0,1fr);align-items:start}
+.contenido{min-width:0}
+.contenido .env{max-width:1240px;margin:0;padding:0 28px 72px}
+
+/* ---------------------------------------------- navegación lateral */
+.lateral{
+  position:sticky;top:57px;display:flex;flex-direction:column;gap:2px;padding:16px 12px;
+  height:calc(100vh - 57px);overflow:auto;border-right:1px solid var(--borde);
+}
+.lateral button{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-radius:10px;
+  background:transparent;color:var(--tinta2);font:inherit;font-size:14px;font-weight:600;
+  padding:10px 12px;cursor:pointer;border-bottom:0;white-space:nowrap;
+}
+.lateral button:hover{background:var(--sup2);color:var(--tinta)}
+.lateral button[aria-selected="true"]{background:var(--sup3);color:var(--tinta);box-shadow:inset 3px 0 0 var(--info)}
+.lateral button .ico{flex:none;opacity:.9}
+.lateral .mas{display:none}
+.panel[hidden]{display:none}
+
+/* ---------------------------------------------- móvil: barra inferior */
+@media (max-width:900px){
+  .app{display:block}
+  .contenido .env{padding:0 16px 96px}
+  .top .env{padding-left:16px;padding-right:16px}
+  .topFila{gap:6px}
+  .topFila .btn{padding:8px 10px}
+  .topFila .btn .lbl{display:none}
+  .topFila .meta{display:none}
+  .lateral{
+    position:fixed;left:0;right:0;bottom:0;top:auto;z-index:60;height:auto;flex-direction:row;
+    justify-content:space-around;gap:0;padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+    border-right:0;border-top:1px solid var(--borde);overflow:visible;
+    background:color-mix(in srgb,var(--plano) 94%,transparent);backdrop-filter:blur(14px);
+  }
+  .lateral button{
+    flex:1 1 0;min-width:0;flex-direction:column;gap:3px;padding:6px 2px;font-size:11px;font-weight:600;
+    text-align:center;justify-content:center;min-height:48px;box-shadow:none!important;
+  }
+  .lateral button .et{overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .lateral button:not([data-prim]):not(.mas){display:none}
+  .lateral .mas{display:flex}
+  .lateral.masAbierto button:not([data-prim]):not(.mas){
+    display:flex;position:absolute;left:12px;right:12px;flex:none;flex-direction:row;justify-content:flex-start;
+    gap:12px;font-size:14px;background:var(--sup2);border:1px solid var(--borde);min-height:44px;padding:10px 14px;
+    text-align:left;
+  }
+  .lateral.masAbierto button[data-tab="mes"]{bottom:calc(100% + 8px + 3*50px)}
+  .lateral.masAbierto button[data-tab="plan"]{bottom:calc(100% + 8px + 2*50px)}
+  .lateral.masAbierto button[data-tab="datos"]{bottom:calc(100% + 8px + 50px)}
+  .lateral.masAbierto button[data-tab="ayuda"]{bottom:calc(100% + 8px)}
+}
+
+/* ---------------------------------------------- tarjetas y componentes comunes */
+.tarjeta > header h2{font-size:16px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:650;line-height:1;
+  padding:4px 8px;border-radius:99px;border:1px solid var(--borde);color:var(--tinta2);white-space:nowrap}
+.badge.ok{color:var(--ok);background:var(--ok-bg);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.badge.warn{color:var(--warn);background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.badge.danger{color:var(--danger);background:var(--danger-bg);border-color:color-mix(in srgb,var(--danger) 45%,transparent)}
+.badge.lock{color:var(--tinta2)}
+.badge svg{width:12px;height:12px}
+.lock{display:none}                       /* sustituido por el badge «En garantía» */
+
+.alerta{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--borde);border-left-width:4px;
+  border-radius:12px;padding:12px 14px;background:var(--sup);font-size:14px;color:var(--tinta2)}
+.alerta + .alerta{margin-top:8px}
+.alerta b{color:var(--tinta)}
+.alerta.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.alerta.danger{border-left-color:var(--danger);background:var(--danger-bg)}
+.alerta.info{border-left-color:var(--info);background:var(--info-bg)}
+.alerta .ico{flex:none;margin-top:2px}
+.alerta .acc{margin-left:auto;flex:none}
+.vacio{color:var(--tinta3);font-size:14px;padding:12px 0}
+
+.buscar{border:1px solid var(--borde);background:var(--sup2);color:var(--tinta);border-radius:9px;
+  padding:7px 10px;font:inherit;font-size:13px;min-width:180px}
+
+/* ---------------------------------------------- cabina del Resumen */
+.cockpit{margin:22px 0 4px;display:grid;gap:14px}
+.cockGrid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+@media (max-width:1100px){.cockGrid{grid-template-columns:1fr}}
+.patrim{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.patrim .c{background:var(--sup);border:1px solid var(--borde);border-radius:12px;padding:12px 14px}
+.patrim .c .e{font-size:12px;color:var(--tinta3);font-weight:600}
+.patrim .c .v{font-size:20px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:4px}
+.variaciones{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.variaciones .c{background:var(--sup);border:1px solid var(--borde);border-radius:12px;padding:10px 14px}
+.variaciones .e{font-size:12px;color:var(--tinta3);font-weight:600}
+.variaciones .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.variaciones .n{font-size:12px;color:var(--tinta3)}
+.estaMes ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.estaMes li{display:flex;gap:12px;align-items:baseline;padding:9px 0;border-top:1px solid var(--borde);font-size:14px;color:var(--tinta2)}
+.estaMes li:first-child{border-top:0}
+.estaMes li b{color:var(--tinta);font-variant-numeric:tabular-nums}
+.estaMes .cuando{flex:none;width:74px;font-size:12px;color:var(--tinta3);font-weight:600}
+
+/* ---------------------------------------------- posiciones */
+table.tabPos th.orden{cursor:pointer;user-select:none}
+table.tabPos tbody tr.fila{cursor:pointer}
+table.tabPos tbody tr.fila:hover{background:var(--sup2)}
+table.tabPos tr.grupo td{background:var(--sup2);font-weight:700;font-size:12.5px;color:var(--tinta2);letter-spacing:.02em}
+table.tabPos td.nom{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+table.tabPos td:first-child,table.tabPos th:first-child{position:sticky;left:0;background:var(--sup);z-index:1}
+table.tabPos tr.grupo td:first-child{background:var(--sup2)}
+table.tabPos tr.fila:hover td:first-child{background:var(--sup2)}
+.filaTotal td{font-weight:700;border-top:2px solid var(--borde)}
+
+/* ---------------------------------------------- panel lateral de detalle */
+.drawerVelo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:70}
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:min(680px,100vw);z-index:80;background:var(--plano);
+  border-left:1px solid var(--borde);overflow:auto;padding:0 18px 40px;box-shadow:-18px 0 50px rgba(0,0,0,.35);
+}
+.drawerCab{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;justify-content:space-between;
+  padding:14px 0;background:var(--plano);border-bottom:1px solid var(--borde);margin-bottom:14px}
+.drawerCab h2{font-size:16px}
+.drawer .tarjeta{margin-top:14px}
+@media (max-width:900px){
+  .drawer{top:auto;left:0;width:100%;max-height:88vh;border-left:0;border-top:1px solid var(--borde);
+    border-radius:18px 18px 0 0;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+}
+
+/* ---------------------------------------------- riesgo y deuda */
+.riesgoGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}
+.medidor{margin:10px 0 6px}
+.medidor .pista{position:relative;height:14px;border-radius:99px;background:linear-gradient(90deg,
+  var(--ok-bg) 0,var(--ok-bg) 55%,var(--warn-bg) 55%,var(--warn-bg) 80%,var(--danger-bg) 80%,var(--danger-bg) 100%);
+  border:1px solid var(--borde)}
+.medidor .nivel{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--ok);min-width:6px}
+.medidor .nivel.medio{background:var(--warn)} .medidor .nivel.alto{background:var(--warn)}
+.medidor .nivel.peligro{background:var(--danger)}
+.medidor .marca{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--tinta);border-radius:2px}
+.medidor .marcaEt{position:absolute;top:20px;font-size:11.5px;color:var(--tinta2);transform:translateX(-50%);white-space:nowrap}
+.medidor .eje{display:flex;justify-content:space-between;font-size:11.5px;color:var(--tinta3);margin-top:26px}
+.stress th,.stress td{white-space:nowrap}
+.stress tr.peligro td{background:var(--danger-bg)} .stress tr.alto td{background:var(--warn-bg)}
+.conc{display:grid;gap:8px;margin-top:8px}
+.conc .f{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,2fr) 56px;gap:10px;align-items:center;font-size:13.5px}
+.conc .f .b{height:8px;border-radius:99px;background:var(--sup3);overflow:hidden}
+.conc .f .b i{display:block;height:100%;background:var(--info);border-radius:99px}
+.conc .f.alta .b i{background:var(--warn)}
+.conc .f .p{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ---------------------------------------------- modo vídeo y detalles */
+body.video .lateral{display:none}
+body.video .app{display:block}
+@media (max-width:900px){
+  table.dt td,table.dt th{padding:8px 10px}
+  .tablaEnv{-webkit-overflow-scrolling:touch}
+  .segm button,.btn,td.acc button{min-height:36px}
+}
+@media (max-width:1180px){table.tabPos .c-clase{display:none}}

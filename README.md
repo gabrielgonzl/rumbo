@@ -47,6 +47,8 @@ Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil
 - **Cifras honestas**: aportado, plusvalía, **TIR** (la rentabilidad real de tu dinero), rentabilidad por año, peor caída, racha de aportaciones…
 - **Comparación con un indexado**: con tus mismas aportaciones, ¿cuánto tendrías en el MSCI World, el S&P 500 o una cartera 60/40?
 - **«Si sigo así…» con precios objetivo**: proyecta a N años con una rentabilidad global, con el precio que crees que tendrá cada activo, o mixto (los activos sin objetivo usan la media de los que sí lo tienen). La aportación mensual va aparte y no se atribuye a ningún activo.
+- **Navegación nueva**: Resumen (qué mirar ahora: alertas, bruto/deuda/neto, «Este mes»), Posiciones (tabla agrupable con panel de detalle), Rendimiento, Riesgo y deuda, Mes a mes, Planificación y Datos. Barra lateral en el ordenador y barra inferior en el móvil; atajos con **Alt + 1…8**.
+- **Pignoraciones**: anota el préstamo con garantía de tus fondos o acciones (importando el cuadro de amortización de tu broker). Marca los activos bloqueados, resta la deuda de tu patrimonio, calcula el coste real y el margen frente a una caída, y permite liquidarla.
 - **Importación de golpe**: el CSV de MyInvestor, una plantilla de Excel o el extracto de cualquier banco convertido con una IA gratuita.
 - **Nunca tocas un archivo a mano**: todo se hace con formularios, con validación y mensajes en castellano llano.
 - **Copias de seguridad automáticas** y exportación del panel a una página web (con opción de **ocultar los importes**).
@@ -348,6 +350,7 @@ Tus datos se guardan en la carpeta **`mis_datos`** de siempre, que se monta dent
 - Para parar la app: `docker compose down`. Para ver los registros: `docker logs rumbo`.
 - El puerto solo se publica en `127.0.0.1`. No lo cambies.
 - El contenedor corre sin privilegios y con el sistema de archivos de solo lectura.
+- Para guardar tus datos fuera de la carpeta de la app (por ejemplo, fuera de OneDrive), crea un archivo `.env` junto a `docker-compose.yml` con `RUMBO_DATOS=C:/Users/tu_usuario/RumboDatos`.
 - Si quieres abrirla con otro nombre de host, usa la variable `PATRIMONIO_HOSTS`. Ojo: la app no tiene contraseña; no publiques el puerto fuera de `127.0.0.1` (por ejemplo `0.0.0.0`), o cualquiera en tu red podría ver tu cartera.
 - La app rechaza las peticiones que llegan desde otras webs: así, una página abierta en el navegador no puede leer tu cartera.
 

@@ -21,6 +21,7 @@
   // El tema (claro u oscuro) se aplica siempre, también con la cartera vacía.
   const temaGuardado = recuerda.lee("patrimonio.tema");
   if (temaGuardado) raiz.dataset.tema = temaGuardado;
+  else if (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) raiz.dataset.tema = "claro";
   const cambiaTema = () => {
     raiz.dataset.tema = raiz.dataset.tema === "claro" ? "oscuro" : "claro";
     recuerda.guarda("patrimonio.tema", raiz.dataset.tema);
@@ -136,6 +137,15 @@
   }
 
   const TODOS = () => D.productos.concat(D.otrosActivos || [], D.pasivos || []);
+  // Un derivado de pignoración ya a 0 € (p. ej. el dinero recibido, ya invertido) no se enseña en las
+  // listas, pero sigue contando en los cálculos: si no, la deuda quedaría sin su contrapartida.
+  const enseñable = p => !(p.derivado && !p.valor);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  // Candado de los activos en garantía: no se pueden vender mientras dure la pignoración.
+  const bloqueo = p => p.pignoradoEn && p.pignoradoEn.length
+    ? `<span class="lock" title="Pignorado en «${esc(p.pignoradoEn.map(x => x.nombre).join("», «"))}»: ` +
+      `no se puede vender hasta liquidar la pignoración">🔒</span>` : "";
   const visibles = () => TODOS().filter(p => !estado.ocultos.has(p.id));
   const filtrando = () => estado.ocultos.size > 0;
   const buscaProd = id => TODOS().find(p => p.id === id);
@@ -160,100 +170,11 @@
     return { eur, pct: eur / p.aportado };
   }
 
-  /* ---------------------------------------------- TIR (XIRR) */
-  function xirr(flujos) {
-    const f = flujos.filter(x => x.v);
-    if (f.length < 2) return null;
-    if (!(f.some(x => x.v < 0) && f.some(x => x.v > 0))) return null;
-    const t0 = Math.min.apply(null, f.map(x => x.t));
-    const ANO = 365 * 24 * 3600 * 1000;
-    const van = tasa => {
-      let s = 0;
-      const base = 1 + tasa;
-      if (base <= 1e-9) return Infinity;
-      for (const x of f) s += x.v / Math.pow(base, (x.t - t0) / ANO);
-      return s;
-    };
-    let lo = -0.9999, hi = 10, vlo = van(lo), vhi = van(hi);
-    if (!isFinite(vlo) || !isFinite(vhi) || vlo * vhi > 0) return null;
-    for (let i = 0; i < 200; i++) {
-      const mid = (lo + hi) / 2, vm = van(mid);
-      if (Math.abs(vm) < 1e-7) return mid;
-      if (vlo * vm <= 0) hi = mid; else { lo = mid; vlo = vm; }
-    }
-    return (lo + hi) / 2;
-  }
-
-  /* ----------------------------------------------------------------
-     Métricas de un conjunto de componentes. Se recalcula todo aquí
-     para que, al apagar series, cada cifra del panel siga cuadrando.
-     ---------------------------------------------------------------- */
-  function metricas(lista) {
-    const n = D.fechas.length;
-    const serie = new Array(n).fill(0);
-    const serieAp = new Array(n).fill(0);
-    let valor = 0, aportado = 0, valorConCoste = 0, valorTir = 0, nAp = 0;
-    const flujos = [];
-
-    lista.forEach(p => {
-      const s = p.serie || [], sa = p.serieAportado || [];
-      for (let i = 0; i < n; i++) {
-        if (s[i] != null) serie[i] += s[i];
-        if (sa[i] != null) serieAp[i] += sa[i];
-      }
-      valor += valorDe(p);
-      if (p.aportado != null && p.aportado > 0) {
-        aportado += p.aportado;
-        valorConCoste += valorDe(p);
-        nAp += (p.aportaciones || []).filter(a => a.importe).length;
-      }
-      // La TIR usa todo el dinero que entró y salió (compras, ventas, dividendos y
-      // comisiones), y solo el valor de los productos que tienen esos movimientos.
-      if (p.flujos && p.flujos.length) {
-        p.flujos.forEach(([f, v]) => flujos.push({ t: Date.parse(f), v }));
-        valorTir += valorDe(p);
-      }
-    });
-
-    const plusvalia = aportado ? valorConCoste - aportado : null;
-    const tir = flujos.length
-      ? xirr(flujos.concat([{ t: Date.parse(D.fechaExtracto), v: valorTir }]))
-      : null;
-
-    const am = D.aportacionesMensuales;
-    const ids = new Set(lista.map(p => p.id));
-    const porMes = am.meses.map((_, i) => Object.keys(am.porProducto)
-      .reduce((a, id) => a + (ids.has(id) ? (am.porProducto[id][i] || 0) : 0), 0));
-    const mesesConAp = am.meses.filter((m, i) => porMes[i] > 0);
-    const ult12 = porMes.slice(-12);
-    const ritmo = ult12.length ? ult12.reduce((a, b) => a + b, 0) / ult12.length : 0;
-
-    let racha = 0;
-    if (mesesConAp.length) {
-      const set = new Set(mesesConAp);
-      const ult = mesesConAp[mesesConAp.length - 1].split("-");
-      let y = +ult[0], mo = +ult[1];
-      while (set.has(y + "-" + String(mo).padStart(2, "0"))) {
-        racha++; mo--; if (mo === 0) { mo = 12; y--; }
-      }
-    }
-
-    let pico = 0, caida = 0, caidaFecha = null;
-    for (let i = 0; i < n; i++) {
-      pico = Math.max(pico, serie[i]);
-      if (pico > 0) {
-        const c = serie[i] / pico - 1;
-        if (c < caida) { caida = c; caidaFecha = D.fechas[i]; }
-      }
-    }
-
-    return {
-      valor, aportado, valorConCoste, plusvalia,
-      rentabilidad: aportado ? plusvalia / aportado : null,
-      tir, numAportaciones: nAp, ritmo, racha, caida, caidaFecha,
-      serie, serieAportado: serieAp,
-    };
-  }
+  /* ---------------------------------------------- métricas (módulo compartido y probado) */
+  const metricas = lista => Metricas.calcula(D, lista, { valorDe });
+  // Una deuda y el dinero que recibiste con ella se filtran siempre juntos.
+  const GRUPOS = Metricas.grupos(TODOS());
+  const grupoDe = id => GRUPOS[id] || [id];
 
   function agrupa(lista, campo) {
     const acc = new Map();
@@ -305,17 +226,24 @@
   function pintaFiltros() {
     const cont = $("#filtros");
     cont.innerHTML = "";
-    TODOS().forEach(p => {
+    const vistos = new Set();
+    TODOS().filter(enseñable).forEach(p => {
+      const ids = grupoDe(p.id);
+      const clave = ids.join("|");
+      if (vistos.has(clave)) return;       // un solo botón para la deuda y su dinero recibido
+      vistos.add(clave);
       const on = !estado.ocultos.has(p.id);
       const b = document.createElement("button");
       b.className = "filtro";
       b.style.setProperty("--c", color(p));
       b.setAttribute("aria-pressed", String(on));
       b.title = on ? "Quitar del gráfico y de las métricas" : "Volver a incluirlo";
-      b.innerHTML = `<i></i>${p.corto || p.nombre}<span class="im">${G.fmtEurCorto(valorDe(p))}</span>`;
+      b.innerHTML = `<i></i>${esc(p.corto || p.nombre)}<span class="im">${G.fmtEurCorto(valorDe(p))}</span>`;
       b.onclick = () => {
-        if (on) { if (visibles().length <= 1) return; estado.ocultos.add(p.id); }
-        else estado.ocultos.delete(p.id);
+        if (on) {
+          if (visibles().length <= ids.length) return;
+          ids.forEach(id => estado.ocultos.add(id));
+        } else ids.forEach(id => estado.ocultos.delete(id));
         pintaPatrimonio();
       };
       cont.appendChild(b);
@@ -393,6 +321,11 @@
   }
 
   function pintaKPIs(m) {
+    const sinFiltro = !filtrando();
+    const twr = sinFiltro && D.total.caidaMaximaTwr != null;
+    const caida = twr ? D.total.caidaMaximaTwr : m.caida;
+    const caidaFecha = twr ? D.total.caidaMaximaTwrFecha : m.caidaFecha;
+    const prest = (D.pignoraciones || []).find(x => x.estado === "activa" && x.ratio != null);
     const kpis = [
       { e: "Aportado", v: G.fmtEur(m.aportado, 0), n: `${m.numAportaciones} aportaciones` },
       {
@@ -401,10 +334,21 @@
         cl: m.plusvalia >= 0 ? "pos" : "neg"
       },
       { e: "TIR anualizada", v: G.fmtPctSigno(m.tir), n: "rentabilidad real del dinero", cl: m.tir >= 0 ? "pos" : "neg" },
-      { e: "Ritmo mensual", v: G.fmtEur(m.ritmo, 0), n: "media de los últimos 12 meses" },
-      { e: "Racha", v: m.racha + (m.racha === 1 ? " mes" : " meses"), n: "aportando sin fallar" },
-      { e: "Peor caída", v: G.fmtPctSigno(m.caida), n: m.caidaFecha ? "del patrimonio, el " + G.fmtFecha(m.caidaFecha) : "", cl: "neg" },
     ];
+    if (sinFiltro && D.total.tirCapitalPropio != null && D.total.deudaPignoraciones) {
+      kpis.push({ e: "TIR de tu capital", v: G.fmtPctSigno(D.total.tirCapitalPropio), n: "descontando el préstamo y sus cuotas",
+        cl: D.total.tirCapitalPropio >= 0 ? "pos" : "neg" });
+    }
+    kpis.push(
+      { e: "Ritmo mensual", v: G.fmtEur(m.ritmo, 0), n: "últimos 12 meses naturales ÷ 12" },
+      { e: "Racha", v: m.racha + (m.racha === 1 ? " mes" : " meses"), n: "aportando sin fallar" },
+      { e: "Peor caída", v: G.fmtPctSigno(caida),
+        n: caidaFecha ? (twr ? "de la rentabilidad, el " : "del valor, el ") + G.fmtFecha(caidaFecha) : "", cl: "neg" });
+    if (sinFiltro && prest) {
+      kpis.push({ e: "Préstamo / garantía", v: G.fmtPct(prest.ratio, 1),
+        n: prest.ltvMax ? "límite " + String(prest.ltvMax).replace(".", ",") + " %" : "límite sin indicar",
+        cl: prest.nivel === "peligro" ? "neg" : "" });
+    }
     $("#kpis").innerHTML = kpis.map(k =>
       `<div class="kpi"><div class="e">${k.e}</div>
        <div class="v ${k.cl || ""}">${k.v}</div><div class="n">${k.n}</div></div>`).join("");
@@ -464,8 +408,9 @@
 
   function pintaChips() {
     const cont = $("#chips");
+    if (!cont) return;
     cont.innerHTML = "";
-    TODOS().forEach(p => {
+    TODOS().filter(enseñable).forEach(p => {
       const oculto = estado.ocultos.has(p.id);
       const b = document.createElement("button");
       b.className = "chip" + (oculto ? " apagado" : "");
@@ -473,7 +418,7 @@
       const plTarjeta = plusvaliaDe(p);
       const rent = plTarjeta ? plTarjeta.pct : null;
       b.innerHTML = `<span class="barra"></span>
-        <div class="nm"><i></i>${p.corto || p.nombre}</div>
+        <div class="nm"><i></i>${p.corto || p.nombre}${bloqueo(p)}</div>
         <div class="vl">${G.fmtEur(valorDe(p))}</div>
         <div class="pi"><span>${oculto ? "fuera del gráfico" : G.fmtPct(p.peso, 1) + " del total"}</span>
           <span class="${rent == null ? "" : rent >= 0 ? "pos" : "neg"}">${rent == null ? "—" : G.fmtPctSigno(rent, 1)}</span></div>
@@ -498,7 +443,7 @@
       onClick: d => { if (d.id) { estado.fondo = d.id; irA("fondos"); } }
     });
     $("#leyendaDist").innerHTML = datos.map(d =>
-      `<tr><td><i style="background:${d.color}"></i>${d.nombre}</td>
+      `<tr><td><i style="background:${d.color}"></i>${esc(d.nombre)}</td>
        <td>${G.fmtEur(d.valor)}</td><td>${G.fmtPct(d.valor / total, 1)}</td></tr>`).join("");
   }
 
@@ -537,11 +482,33 @@
     let valorBase = 0;
     lista.forEach(p => {
       const v = valorDe(p);
-      if (!(v > 0)) { valorBase += v; return; }          // deudas: se mantienen fijas
+      if (!(v > 0)) {
+        if (p.derivado && p.tipoClave === "deuda") return;   // la de un préstamo se amortiza con su cuadro
+        valorBase += v;                                       // otras deudas: se mantienen fijas
+        return;
+      }
       activos.push({ id: p.id, nombre: p.corto || p.nombre, color: color(p), valor: v,
                      precio: (p.precioActual || p.nav) > 0 ? (p.precioActual || p.nav) : null, tipo: p.tipoClave || "" });
     });
     return { activos, valorBase };
+  }
+
+  /* Deuda pendiente de los préstamos al final de cada mes de la proyección (según su cuadro). */
+  function deudaMensual(meses) {
+    const prest = (D.pignoraciones || []).filter(x => x.estado === "activa" && !estado.ocultos.has("pignoracion_" + x.id));
+    if (!prest.length) return null;
+    const base = new Date(D.fechaExtracto + "T00:00:00");
+    return Array.from({ length: meses + 1 }, (_, m) => {
+      const f = new Date(base.getFullYear(), base.getMonth() + m, base.getDate());
+      const iso = f.getFullYear() + "-" + String(f.getMonth() + 1).padStart(2, "0") + "-" + String(f.getDate()).padStart(2, "0");
+      return prest.reduce((a, x) => {
+        let saldo = x.saldo;
+        for (const r of ((x.calendario && x.calendario.futuro) || [])) {
+          if (r.fecha <= iso) saldo = r.pendiente; else break;
+        }
+        return a + saldo;
+      }, 0);
+    });
   }
 
   function pintaProyeccion() {
@@ -557,8 +524,9 @@
 
     const { activos, valorBase } = activosProyeccion();
     const entrada = (a) => ({ ...a, objetivo: proy.objetivos[a.id] > 0 ? proy.objetivos[a.id] : null });
+    const deuda = deudaMensual(Math.round(anos * 12));
     const sim = Proyeccion.simula({ activos: activos.map(entrada), anos, modo: proy.modo,
-                                    rentGlobal: rent, aportacion: apor, valorBase });
+                                    rentGlobal: rent, aportacion: apor, valorBase, deuda });
 
     // La tabla se vuelve a dibujar solo si cambian los activos o el modo: así no pierdes el foco al escribir.
     const clave = proy.modo + "|" + activos.map(a => a.id).join(",");
@@ -568,7 +536,7 @@
         `<thead><tr><th>Activo</th><th>Vale hoy</th><th>Precio hoy</th>
           <th>Precio dentro de <span id="anosTabla"></span> años</th><th>Rentab. anual</th><th>Valdría</th></tr></thead>
          <tbody>${activos.map(a => `<tr>
-          <td><i class="pt" style="background:${a.color}"></i>${a.nombre}</td>
+          <td><i class="pt" style="background:${a.color}"></i>${esc(a.nombre)}</td>
           <td>${G.fmtEur(a.valor, 0)}</td>
           <td>${a.precio != null ? G.fmtEur(a.precio, a.precio < 10 ? 3 : 2) : "—"}</td>
           <td><input type="number" min="0" step="any" class="inObj" data-id="${a.id}" placeholder="vacío"
@@ -614,12 +582,312 @@
         : `Aún no has puesto ningún precio objetivo: los activos ${proy.modo === "mixto" ? "usan" : "se quedan sin crecer; las aportaciones usan"} ` +
           `la rentabilidad de ${$("#rRent").value.replace(".", ",")} %.`;
     }
+    const amortizado = deuda ? deuda[0] - deuda[deuda.length - 1] : 0;
     $("#proyResumen").innerHTML =
       `Partiendo de ${G.fmtEur(m0, 0)}${filtrando() ? " (vista filtrada)" : ""},
        en <b class="fuerte">${anos} años</b> tendrías <b class="fuerte">${G.fmtEur(fin, 0)}</b>
        <span style="color:var(--tinta3)">·</span> habrías aportado ${G.fmtEur(apFin, 0)}
        <span style="color:var(--tinta3)">·</span> el mercado pondría
-       <span class="pos fuerte">${G.fmtEur(fin - m0 - apFin, 0)}</span>`;
+       <span class="pos fuerte">${G.fmtEur(fin - m0 - apFin - amortizado, 0)}</span>` +
+      (amortizado > 0 ? ` <span style="color:var(--tinta3)">·</span> habrás amortizado
+       <b class="fuerte">${G.fmtEur(amortizado, 0)}</b> del préstamo (sus cuotas salen de tu sueldo, no de la aportación)` : "");
+  }
+
+  /* ================================================================
+     RESUMEN · la cabina: qué debo mirar ahora
+     ================================================================ */
+  const hoyIso = () => D.fechaExtracto;
+  const diasHasta = iso => Math.round((Date.parse(iso) - Date.parse(hoyIso())) / 86400000);
+  const ico = d => `<svg class="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ` +
+    `stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICO_ALERTA = ico('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>');
+  const ICO_INFO = ico('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>');
+  const ICO_LOCK = ico('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>');
+  const pctTxt = (x, d = 1) => x == null ? "—" : G.fmtPct(x, d);
+  const NIVEL_ET = { bajo: "Holgado", medio: "Atención", alto: "Ajustado", peligro: "Por encima del límite" };
+  const nivelEt = (n, limite) => n === "peligro" && !limite ? "Deuda mayor que la garantía" : (NIVEL_ET[n] || "Activa");
+  const NIVEL_CL = { bajo: "ok", medio: "warn", alto: "warn", peligro: "danger" };
+
+  function alertas() {
+    const out = [];
+    (D.pignoraciones || []).filter(x => x.estado === "activa").forEach(x => {
+      if (x.nivel === "peligro" && x.superaLimite) {
+        out.push({ cl: "danger", ico: ICO_ALERTA, ir: "riesgo",
+          t: `<b>${esc(x.nombre)}:</b> el préstamo es el ${pctTxt(x.ratio)} de la garantía y tu límite es el ` +
+             `${String(x.ltvMax).replace(".", ",")} %. Para volver al límite habría que amortizar ` +
+             `<b>${G.fmtEur(x.amortizarParaLimite, 0)}</b> o añadir ${G.fmtEur(x.garantiaAnadirParaLimite, 0)} de garantía.` });
+      } else if (x.nivel === "peligro") {
+        out.push({ cl: "danger", ico: ICO_ALERTA, ir: "riesgo",
+          t: `<b>${esc(x.nombre)}:</b> la deuda (${G.fmtEur(x.saldo, 0)}) supera ya el valor de la garantía (${G.fmtEur(x.garantia, 0)}).` });
+      } else if (x.nivel === "alto" || x.nivel === "medio") {
+        out.push({ cl: "warn", ico: ICO_ALERTA, ir: "riesgo",
+          t: `<b>${esc(x.nombre)}:</b> el préstamo es el ${pctTxt(x.ratio)} de la garantía. Si esos activos caen un ` +
+             `${pctTxt(x.caidaHastaLimite != null ? x.caidaHastaLimite : x.caidaHastaIgualar)}, ` +
+             `${x.caidaHastaLimite != null ? "tocarías el límite de tu entidad" : "la garantía igualaría la deuda"}.` });
+      }
+      if (x.proxima && diasHasta(x.proxima.fecha) >= 0 && diasHasta(x.proxima.fecha) <= 10) {
+        out.push({ cl: "info", ico: ICO_INFO,
+          t: `Próxima cuota de <b>${esc(x.nombre)}</b>: ${G.fmtEur(x.proxima.cuota)} el ${G.fmtFecha(x.proxima.fecha)}.` });
+      }
+    });
+    const viejos = (D.avisos || []).filter(a => /último precio que tengo/.test(a)).length;
+    if (viejos) {
+      out.push({ cl: "info", ico: ICO_INFO,
+        t: `${viejos} ${viejos === 1 ? "producto tiene" : "productos tienen"} el precio desactualizado. Pulsa «Actualizar precios».` });
+    }
+    return out;
+  }
+
+  function pintaCockpit() {
+    const el = $("#cockpit");
+    if (!el) return;
+    const todos = TODOS().filter(enseñable);
+    const bruto = todos.filter(p => valorDe(p) > 0).reduce((a, p) => a + valorDe(p), 0);
+    const deuda = -todos.filter(p => valorDe(p) < 0).reduce((a, p) => a + valorDe(p), 0);
+
+    const idx = D.indiceCartera || [], n = idx.length;
+    const var_ = dias => (n - 1 - dias >= 0 && idx[n - 1 - dias]) ? idx[n - 1] / idx[n - 1 - dias] - 1 : null;
+    const ini = D.fechas.findIndex(f => f >= D.fechaExtracto.slice(0, 4) + "-01-01");
+    const ytd = ini > 0 && idx[ini - 1] ? idx[n - 1] / idx[ini - 1] - 1 : (ini === 0 && idx[0] ? idx[n - 1] / idx[0] - 1 : null);
+    const celda = (e, v, nota) => `<div class="c"><div class="e">${e}</div>
+      <div class="v ${v == null ? "" : v >= 0 ? "pos" : "neg"}">${v == null ? "—" : G.fmtPctSigno(v, 2)}</div>
+      <div class="n">${nota}</div></div>`;
+
+    const al = alertas();
+    const esteMes = [];
+    (D.pignoraciones || []).filter(x => x.estado === "activa" && x.proxima).forEach(x =>
+      esteMes.push({ cuando: G.fmtFechaCorta(x.proxima.fecha), t: `Cuota de ${esc(x.nombre)}: <b>${G.fmtEur(x.proxima.cuota)}</b>` }));
+    const am = D.aportacionesMensuales;
+    const mesAct = D.fechaExtracto.slice(0, 7);
+    const iMes = am.meses.indexOf(mesAct);
+    const llevas = iMes >= 0 ? am.total[iMes] : 0;
+    const ritmo = D.total.ritmoMensual || 0;
+    if (ritmo) {
+      esteMes.push({ cuando: "Este mes",
+        t: llevas >= ritmo * 0.95 ? `Has aportado <b>${G.fmtEur(llevas, 0)}</b>: ya cubres tu ritmo habitual (${G.fmtEur(ritmo, 0)}).`
+          : `Llevas <b>${G.fmtEur(llevas, 0)}</b> de tu ritmo habitual de ${G.fmtEur(ritmo, 0)}.` });
+    }
+    (D.pignoraciones || []).filter(x => x.estado === "activa" && !x.ltvMax).forEach(x =>
+      esteMes.push({ cuando: "Dato", t: `Anota el <b>límite de LTV</b> de «${esc(x.nombre)}» (en tu contrato) para medir tu margen real.` }));
+    if (D.total.deudaPignoraciones && D.total.tirCapitalPropio != null) {
+      esteMes.push({ cuando: "Dato", t: `Tu TIR sobre el <b>capital propio</b> (descontado el préstamo) es ${G.fmtPctSigno(D.total.tirCapitalPropio, 1)}.` });
+    }
+
+    el.innerHTML = `
+      ${al.length ? `<div class="alertas">${al.map(a => `<div class="alerta ${a.cl}" role="${a.cl === "danger" ? "alert" : "status"}">
+          ${a.ico}<div>${a.t}</div>${a.ir ? `<button class="btn acc" data-ir="${a.ir}">Ver riesgo →</button>` : ""}</div>`).join("")}</div>` : ""}
+      <div class="cockGrid">
+        <div>
+          <div class="patrim">
+            <div class="c"><div class="e">Bruto (lo que tienes)</div><div class="v">${G.fmtEur(bruto, 0)}</div></div>
+            <div class="c"><div class="e">Deuda</div><div class="v ${deuda ? "neg" : ""}">${deuda ? "−" + G.fmtEur(deuda, 0) : G.fmtEur(0, 0)}</div></div>
+            <div class="c"><div class="e">Neto</div><div class="v">${G.fmtEur(bruto - deuda, 0)}</div></div>
+          </div>
+          <div class="variaciones" aria-label="Rentabilidad reciente de la cartera">
+            ${celda("Hoy", var_(1), "rentabilidad de 1 día")}
+            ${celda("Último mes", var_(30), "rentabilidad, sin aportaciones")}
+            ${celda("En el año", ytd, "rentabilidad del año en curso")}
+          </div>
+        </div>
+        <section class="tarjeta estaMes" aria-labelledby="estaMesTit">
+          <header><h2 id="estaMesTit">Este mes</h2></header>
+          ${esteMes.length ? `<ul>${esteMes.map(i => `<li><span class="cuando">${i.cuando}</span><span>${i.t}</span></li>`).join("")}</ul>`
+            : '<p class="vacio">Nada pendiente: todo al día.</p>'}
+        </section>
+      </div>`;
+    el.querySelectorAll("[data-ir]").forEach(b => { b.onclick = () => irA(b.dataset.ir); });
+  }
+
+  /* ================================================================
+     POSICIONES · tabla agrupable con panel de detalle
+     ================================================================ */
+  const pos = { agrupar: recuerda.lee("patrimonio.agrupar") || "tipo", orden: { col: "valor", desc: true }, q: "" };
+  const AGRUPAR = [{ id: "tipo", et: "Tipo" }, { id: "garantia", et: "En garantía" }, { id: "clase", et: "Categoría" }, { id: "ninguno", et: "Sin agrupar" }];
+
+  function badgeGarantia(p) {
+    return p.pignoradoEn && p.pignoradoEn.length
+      ? `<span class="badge lock" title="Pignorado en «${esc(p.pignoradoEn.map(x => x.nombre).join("», «"))}»: no se puede vender hasta liquidar">${ICO_LOCK} En garantía</span>` : "";
+  }
+
+  function filasPos() {
+    const items = TODOS().filter(enseñable).filter(p => valorDe(p) >= 0 && !(p.derivado && p.tipoClave === "deuda"));
+    const bruto = items.reduce((a, p) => a + valorDe(p), 0) || 1;
+    return items.map(p => {
+      const pl = plusvaliaDe(p);
+      return { p, id: p.id, nombre: p.corto || p.nombre, clase: p.clase || "Otros", tipo: p.tipo || "Otros",
+        valor: valorDe(p), peso: valorDe(p) / bruto, plus: pl ? pl.eur : null, pct: pl ? pl.pct : null,
+        tir: p.tir != null ? p.tir : null, garantia: p.pignoradoEn && p.pignoradoEn.length ? "En garantía" : "Libre" };
+    });
+  }
+
+  function pintaPosiciones() {
+    const tabla = $("#tablaPos");
+    if (!tabla) return;
+    pintaSegm($("#segAgrupar"), AGRUPAR, pos.agrupar, id => { pos.agrupar = id; recuerda.guarda("patrimonio.agrupar", id); pintaPosiciones(); });
+    const buscar = $("#posBuscar");
+    if (buscar && buscar.value !== pos.q) buscar.value = pos.q;
+    let filas = filasPos();
+    const q = pos.q.trim().toLowerCase();
+    if (q) filas = filas.filter(f => (f.p.nombre + " " + (f.p.identificador || "") + " " + f.clase).toLowerCase().includes(q));
+    const o = pos.orden;
+    const cmp = (a, b) => {
+      const va = a[o.col], vb = b[o.col];
+      const c = va == null ? -1 : vb == null ? 1 : typeof va === "string" ? va.localeCompare(vb, "es") : va - vb;
+      return o.desc ? -c : c;
+    };
+    const cols = [["nombre", "Posición", false], ["clase", "Categoría", false], ["peso", "Peso", true], ["valor", "Valor", true],
+      ["plus", "Plusvalía", true], ["pct", "Rentab.", true], ["tir", "TIR", true]];
+    const cabecera = cols.map(([c, et]) => {
+      const act = o.col === c;
+      return `<th class="orden${c === "clase" ? " c-clase" : ""}" data-c="${c}" aria-sort="${act ? (o.desc ? "descending" : "ascending") : "none"}" tabindex="0">${et}${act ? (o.desc ? " ↓" : " ↑") : ""}</th>`;
+    }).join("");
+    const fila = f => `<tr class="fila" data-id="${esc(f.id)}" tabindex="0">
+        <td class="nom"><i class="pt" style="background:${color(f.p)}"></i>${esc(f.nombre)} ${badgeGarantia(f.p)}</td>
+        <td class="c-clase">${esc(f.clase)}</td><td>${G.fmtPct(f.peso, 1)}</td><td>${G.fmtEur(f.valor)}</td>
+        <td class="${f.plus == null ? "" : f.plus >= 0 ? "pos" : "neg"}">${f.plus == null ? "—" : G.fmtEurSigno(f.plus)}</td>
+        <td class="${f.pct == null ? "" : f.pct >= 0 ? "pos" : "neg"}">${f.pct == null ? "—" : G.fmtPctSigno(f.pct, 1)}</td>
+        <td class="${f.tir == null ? "" : f.tir >= 0 ? "pos" : "neg"}">${f.tir == null ? "—" : G.fmtPctSigno(f.tir, 1)}</td></tr>`;
+    let cuerpo = "";
+    if (pos.agrupar === "ninguno") cuerpo = filas.sort(cmp).map(fila).join("");
+    else {
+      const g = new Map();
+      filas.forEach(f => { const k = f[pos.agrupar]; (g.get(k) || g.set(k, []).get(k)).push(f); });
+      [...g.entries()].sort((a, b) => b[1].reduce((s, f) => s + f.valor, 0) - a[1].reduce((s, f) => s + f.valor, 0))
+        .forEach(([k, items]) => {
+          const tot = items.reduce((s, f) => s + f.valor, 0), pes = items.reduce((s, f) => s + f.peso, 0);
+          cuerpo += `<tr class="grupo"><td colspan="2">${esc(k)} · ${items.length}</td><td>${G.fmtPct(pes, 1)}</td><td>${G.fmtEur(tot)}</td><td colspan="3"></td></tr>`
+            + items.sort(cmp).map(fila).join("");
+        });
+    }
+    const total = filas.reduce((a, f) => a + f.valor, 0);
+    tabla.innerHTML = `<thead><tr>${cabecera}</tr></thead><tbody>${cuerpo || '<tr><td colspan="7" class="vacio">Ninguna posición coincide con la búsqueda.</td></tr>'}</tbody>
+      <tfoot><tr class="filaTotal"><td colspan="3">Total ${filas.length} posiciones</td><td>${G.fmtEur(total)}</td><td colspan="3"></td></tr></tfoot>`;
+    $("#posNota").textContent = pos.agrupar === "ninguno" ? "Pulsa una fila para ver su ficha" : "Agrupadas · pulsa una fila para ver su ficha";
+    tabla.querySelectorAll("th.orden").forEach(th => {
+      const act = () => { const c = th.dataset.c; pos.orden = { col: c, desc: pos.orden.col === c ? !pos.orden.desc : c !== "nombre" && c !== "clase" }; pintaPosiciones(); };
+      th.onclick = act;
+      th.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } };
+    });
+    tabla.querySelectorAll("tr.fila").forEach(tr => {
+      const abre = () => abreDetalle(tr.dataset.id);
+      tr.onclick = abre;
+      tr.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abre(); } };
+    });
+  }
+
+  let ultimoFoco = null;
+  function abreDetalle(id) {
+    estado.fondo = id;
+    ultimoFoco = document.activeElement;
+    $("#drawer").hidden = false;
+    $("#drawerVelo").hidden = false;
+    pintaDetalle();
+    $("#drawer").focus();
+  }
+  function cierraDetalle() {
+    $("#drawer").hidden = true;
+    $("#drawerVelo").hidden = true;
+    if (ultimoFoco && ultimoFoco.focus) ultimoFoco.focus();
+  }
+
+  /* ================================================================
+     RIESGO Y DEUDA · préstamos con garantía y concentración
+     ================================================================ */
+  function medidorLtv(x) {
+    const r = Math.min(1, x.ratio || 0) * 100;
+    const lim = x.ltvMax ? Math.min(100, x.ltvMax) : null;
+    return `<div class="medidor" role="img" aria-label="Préstamo sobre garantía: ${pctTxt(x.ratio)}${lim ? `, límite ${String(x.ltvMax).replace(".", ",")} %` : ""}">
+      <div class="pista"><div class="nivel ${x.nivel || ""}" style="width:${r.toFixed(1)}%"></div>
+        ${lim ? `<div class="marca" style="left:${lim}%"></div><span class="marcaEt" style="left:${Math.min(Math.max(lim, 12), 88)}%">límite ${String(x.ltvMax).replace(".", ",")} %</span>` : ""}</div>
+      <div class="eje"><span>0 %</span><span>50 %</span><span>100 % de la garantía</span></div></div>`;
+  }
+
+  function tarjetaPrestamo(x) {
+    const activa = x.estado === "activa";
+    const kpi = (e, v, n) => `<div class="kpi"><div class="e">${e}</div><div class="v">${v}</div>${n ? `<div class="n">${n}</div>` : ""}</div>`;
+    let lectura = "";
+    if (activa && x.ratio != null) {
+      if (x.superaLimite) {
+        lectura = `<p><b class="neg">Estás por encima del límite de tu entidad.</b> Para volver a él tendrías que amortizar
+          <b>${G.fmtEur(x.amortizarParaLimite, 0)}</b> o añadir <b>${G.fmtEur(x.garantiaAnadirParaLimite, 0)}</b> de garantía.</p>`;
+      } else if (x.caidaHastaLimite != null) {
+        lectura = `<p>La garantía puede caer un <b>${pctTxt(x.caidaHastaLimite)}</b> (hasta ${G.fmtEur(x.garantiaMinima, 0)}) antes de tocar el
+          límite del ${String(x.ltvMax).replace(".", ",")} %. Con una caída del ${pctTxt(x.caidaHastaIgualar)} valdría lo mismo que la deuda.</p>`;
+      } else {
+        lectura = `<p>Si la garantía cae un <b>${pctTxt(x.caidaHastaIgualar)}</b>, valdrá lo mismo que la deuda. Aún no has indicado el
+          límite de tu entidad (LTV máximo): añádelo al editar la pignoración para medir tu margen real.</p>`;
+      }
+    }
+    const stress = activa && x.stress && x.stress.length ? `
+      <h3 class="sub">¿Y si el mercado cae?</h3>
+      <div class="tablaEnv"><table class="dt stress"><thead><tr><th>Caída de la garantía</th><th>Garantía</th><th>Préstamo / garantía</th><th>Estado</th></tr></thead>
+        <tbody>${x.stress.map(s => `<tr class="${s.nivel}"><td>−${Math.round(s.caida * 100)} %</td><td>${G.fmtEur(s.garantia, 0)}</td>
+          <td>${pctTxt(s.ratio)}</td><td><span class="badge ${NIVEL_CL[s.nivel]}">${nivelEt(s.nivel, x.ltvMax)}</span></td></tr>`).join("")}</tbody></table></div>` : "";
+    const cal = x.calendario || { proximas: [], saldoAnual: [] };
+    const calend = activa && cal.proximas.length ? `
+      <h3 class="sub">Próximas cuotas y deuda a final de año</h3>
+      <div class="rejilla2" style="margin-top:8px">
+        <div class="tablaEnv"><table class="dt"><thead><tr><th>Fecha</th><th>Cuota</th><th>Intereses</th><th>Amortizas</th><th>Queda</th></tr></thead>
+          <tbody>${cal.proximas.slice(0, 6).map(r => `<tr><td>${G.fmtFecha(r.fecha)}</td><td>${G.fmtEur(r.cuota)}</td><td>${G.fmtEur(r.intereses)}</td>
+            <td>${G.fmtEur(r.amortizado)}</td><td>${G.fmtEur(r.pendiente)}</td></tr>`).join("")}</tbody></table></div>
+        <div class="tablaEnv"><table class="dt"><thead><tr><th>Cierre de año</th><th>Deuda pendiente</th></tr></thead>
+          <tbody>${cal.saldoAnual.slice(0, 8).map(r => `<tr><td>${r.ano}</td><td>${G.fmtEur(r.saldo, 0)}</td></tr>`).join("")}</tbody></table></div>
+      </div>` : "";
+    return `<section class="tarjeta" style="margin-top:16px" aria-labelledby="pr-${esc(x.id)}">
+      <header>
+        <h2 id="pr-${esc(x.id)}">${esc(x.nombre)}</h2>
+        ${activa ? `<span class="badge ${NIVEL_CL[x.nivel] || ""}">${nivelEt(x.nivel, x.ltvMax)}</span>` : '<span class="badge ok">Liquidada</span>'}
+        ${x.entidad ? `<span class="subt">${esc(x.entidad)}</span>` : ""}
+        <div class="sep"></div>
+        <button class="btn" data-gestion>Gestionar en Datos</button>
+      </header>
+      ${activa ? `<div class="riesgoGrid">
+          ${kpi("Préstamo / garantía", pctTxt(x.ratio), x.ltvMax ? "límite " + String(x.ltvMax).replace(".", ",") + " %" : "límite sin indicar")}
+          ${kpi("Deuda pendiente", G.fmtEur(x.saldo), x.devengado ? "+" + G.fmtEur(x.devengado) + " de intereses devengados" : "")}
+          ${kpi("Garantía hoy", G.fmtEur(x.garantia, 0), x.activosDetalle.length + (x.activosDetalle.length === 1 ? " activo" : " activos"))}
+          ${kpi("Cuota", G.fmtEur(x.cuota), x.proxima ? "próxima: " + G.fmtFecha(x.proxima.fecha) : "")}
+          ${kpi("Interés anual", String(x.interes).replace(".", ",") + " %", x.comisionApertura ? "apertura " + G.fmtEur(x.comisionApertura) : "sin comisión de apertura")}
+          ${kpi("Intereses", G.fmtEur(x.interesesPagados, 0) + " pagados", G.fmtEur(x.interesesRestantes, 0) + " por pagar")}
+        </div>
+        ${medidorLtv(x)}${lectura}${stress}${calend}
+        <h3 class="sub">Liquidarla</h3>
+        <p>Cancelarla hoy costaría <b>${G.fmtEur(x.aLiquidar)}</b> (deuda ${G.fmtEur(x.saldo)} + intereses devengados ${G.fmtEur(x.devengado)}${x.penalizacion ? ` + comisión de cancelación ${G.fmtEur(x.penalizacion)}` : ""})
+          y te ahorraría unos <b class="pos">${G.fmtEur(Math.max(0, x.ahorroSiLiquidas), 0)}</b> de intereses. Coste total del préstamo: ${G.fmtEur(x.costeTotal, 0)}.</p>
+        <details class="faq"><summary>Qué implica tener activos pignorados</summary><div><ul>
+          <li><b>Bloqueo:</b> no puedes vender ${x.activosDetalle.length > 1 ? "esos activos" : "ese activo"} hasta liquidar el préstamo.</li>
+          <li><b>Liquidación forzosa:</b> si su valor baja demasiado, la entidad puede pedirte más garantía o vender por ti, aunque sea en mal momento.</li>
+          <li><b>Coste:</b> pagas un ${String(x.interes).replace(".", ",")} % anual; lo que reinviertas debe rendir más que eso para compensar.</li>
+          <li><b>Patrimonio neto:</b> la deuda se resta de tu patrimonio, así que no se infla con el dinero recibido.</li></ul></div></details>
+        <div class="activos" style="margin-top:12px">${x.activosDetalle.map(a => `<span class="badge lock">${ICO_LOCK} ${esc(a.nombre)} · ${G.fmtEur(a.valor, 0)}</span>`).join(" ")}</div>`
+      : `<p class="subt">Liquidada el ${G.fmtFecha(x.fechaLiquidacion)}. Recibiste ${G.fmtEur(x.recibido)} y has pagado ${G.fmtEur(x.interesesPagados)} de intereses.</p>`}
+    </section>`;
+  }
+
+  function pintaRiesgo() {
+    const cont = $("#riesgo");
+    if (!cont) return;
+    const lista = (D.pignoraciones || []).slice().sort((a, b) => (a.estado === "activa" ? 0 : 1) - (b.estado === "activa" ? 0 : 1));
+    const activos = TODOS().filter(enseñable).filter(p => valorDe(p) > 0 && p.tipoClave !== "efectivo");
+    const total = activos.reduce((a, p) => a + valorDe(p), 0) || 1;
+    const top = activos.map(p => ({ p, peso: valorDe(p) / total })).sort((a, b) => b.peso - a.peso).slice(0, 8);
+    const UMBRAL = 0.15;
+    cont.innerHTML = `
+      ${lista.length ? lista.map(tarjetaPrestamo).join("") : `<section class="tarjeta"><header><h2>Préstamos con garantía</h2></header>
+        <p class="vacio">${window.ESTATICO ? "Esta versión exportada no incluye los préstamos." : "No tienes ninguna pignoración anotada. Si pignoras activos para pedir un préstamo, anótala en Datos → Pignoraciones y aquí verás tu margen, el estrés de mercado y el calendario."}</p></section>`}
+      <section class="tarjeta" style="margin-top:16px" aria-labelledby="concTit">
+        <header><h2 id="concTit">Concentración</h2><span class="subt">Peso de cada posición sobre lo que tienes invertido (sin efectivo)</span></header>
+        <div class="conc">${top.map(t => `<div class="f ${t.peso > UMBRAL ? "alta" : ""}"><span>${esc(t.p.corto || t.p.nombre)}</span>
+          <span class="b"><i style="width:${(t.peso * 100).toFixed(1)}%"></i></span><span class="p">${G.fmtPct(t.peso, 1)}</span></div>`).join("")}</div>
+        ${top.some(t => t.peso > UMBRAL) ? `<p class="subt" style="margin-top:12px">Marcadas en ámbar las posiciones que pesan más del ${Math.round(UMBRAL * 100)} %.
+          Los fondos indexados ya reparten el riesgo por dentro; una sola acción pequeña, no.</p>` : ""}
+      </section>`;
+    cont.querySelectorAll("[data-gestion]").forEach(b => {
+      b.onclick = () => {
+        try { localStorage.setItem("patrimonio.editor", "pignoraciones"); } catch (e) { /* da igual */ }
+        irA("datos");
+        if (window.Editor && window.Editor.vista) window.Editor.vista("pignoraciones");
+      };
+    });
   }
 
   function pintaTabla() {
@@ -668,13 +936,13 @@
     const mVis = filtrando() ? metricas(visibles()) : mTodo;
     pintaFiltros();
     pintaHero(mVis, mTodo);
+    pintaCockpit();
     pintaKPIs(mVis);
     pintaPrincipal(mVis);
     pintaChips();
     pintaDistribucion();
     pintaBarras();
     pintaHitos(mTodo);
-    pintaProyeccion();
     pintaTabla();
     pintaSegm($("#segRango"), RANGOS, estado.rango, id => { estado.rango = id; pintaPatrimonio(); });
     pintaSegm($("#segVista"), [
@@ -754,7 +1022,7 @@
        <tbody>${filas.map(({ p, d }) => {
         const var_ = d.fin - d.inicio;
         return `<tr>
-          <td><i class="pt" style="background:${color(p)}"></i>${p.corto || p.nombre}</td>
+          <td><i class="pt" style="background:${color(p)}"></i>${esc(p.corto || p.nombre)}</td>
           <td>${G.fmtEur(d.inicio)}</td>
           <td>${d.aportado ? G.fmtEur(d.aportado) : "—"}</td>
           <td class="${d.mercado >= 0 ? "pos" : "neg"}">${G.fmtEurSigno(d.mercado)}</td>
@@ -786,20 +1054,16 @@
      PESTAÑA 3 · FONDOS
      ================================================================ */
   function pintaFondos() {
-    const lista = TODOS();
+    pintaPosiciones();
+    if (!$("#drawer").hidden) pintaDetalle();
+  }
+
+  function pintaDetalle() {
+    const lista = TODOS().filter(enseñable);
+    if (!lista.length) return;
     if (!estado.fondo || !buscaProd(estado.fondo)) estado.fondo = lista[0].id;
     const p = buscaProd(estado.fondo);
-
-    $("#selFondo").innerHTML = "";
-    lista.forEach(x => {
-      const b = document.createElement("button");
-      b.style.setProperty("--c", color(x));
-      b.setAttribute("aria-pressed", String(x.id === estado.fondo));
-      b.innerHTML = `<i></i>${x.corto || x.nombre}`;
-      b.onclick = () => { estado.fondo = x.id; pintaFondos(); };
-      $("#selFondo").appendChild(b);
-    });
-
+    $("#drawerTit").textContent = p.corto || p.nombre;
     pintaFichaFondo(p);
     pintaExposicion(p);
     pintaTablaFondo(p);
@@ -823,6 +1087,8 @@
       ["Fuente del precio", p.fuenteTexto || p.fuentePrecio],
       ["Plusvalía ya materializada", p.realizado ? G.fmtEur(p.realizado) : null],
       ["Peso en el patrimonio", p.peso != null ? G.fmtPct(p.peso, 1) : null],
+      ["Pignorado en", p.pignoradoEn && p.pignoradoEn.length
+        ? "🔒 " + esc(p.pignoradoEn.map(x => x.nombre).join(", ")) + " · no se puede vender" : null],
     ].filter(c => c[0] && c[1]);
 
     const hayVL = !!(p.navSerie && p.navSerie.some(v => v));
@@ -831,12 +1097,12 @@
 
     sec.innerHTML = `
       <header>
-        <h2><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color(p)};margin-right:9px"></span>${p.nombre}</h2>
+        <h2><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color(p)};margin-right:9px"></span>${esc(p.nombre)}</h2>
         <div class="sep"></div>
         ${hayVL ? '<div class="segm" id="segSerie"></div>' : ""}
       </header>
-      ${p.papel ? `<div class="papel">${p.papel}</div>` : ""}
-      ${p.indiceDetalle ? `<p style="color:var(--tinta2);font-size:13.5px;margin:0 0 16px">${p.indiceDetalle}</p>` : ""}
+      ${p.papel ? `<div class="papel">${esc(p.papel)}</div>` : ""}
+      ${p.indiceDetalle ? `<p style="color:var(--tinta2);font-size:13.5px;margin:0 0 16px">${esc(p.indiceDetalle)}</p>` : ""}
       <div class="ficha">${campos.map(c => `<div><dt>${c[0]}</dt><dd>${c[1]}</dd></div>`).join("")}</div>
       <div id="ventanas"></div>
       ${pocos ? '<p class="subt" style="margin:0 0 12px">Solo hay un valor anotado, así que aún no hay curva. Anota más en «Mis datos → Saldos y valores».</p>' : ""}
@@ -869,7 +1135,7 @@
         .map(k => `<div class="ventana"><div class="e">${et[k]}</div>
           <div class="v ${p.ventanas[k] >= 0 ? "pos" : "neg"}">${G.fmtPctSigno(p.ventanas[k], 1)}</div></div>`).join("");
       if (celdas) {
-        html += `<div class="ventanas"><span class="grupoEtq">${p.etqVentanas || "El precio"}, lo tuvieras o no</span>${celdas}</div>`;
+        html += `<div class="ventanas"><span class="grupoEtq">${esc(p.etqVentanas || "El precio")}, lo tuvieras o no</span>${celdas}</div>`;
       }
     }
     $("#ventanas").innerHTML = html;
@@ -1013,7 +1279,7 @@
         `<thead><tr><th>Producto</th>${ra.anos.map((a, i) =>
           `<th>${a}${ra.parcial[i] ? " *" : ""}</th>`).join("")}</tr></thead>
          <tbody>${prods.map(p => `<tr>
-           <td><i class="pt" style="background:${color(p)}"></i>${p.corto}</td>
+           <td><i class="pt" style="background:${color(p)}"></i>${esc(p.corto)}</td>
            ${tabla[p.id].map((v, i) => celda(v, (desde[p.id] || [])[i])).join("")}
          </tr>`).join("")}</tbody>` +
         (verProducto ? "" : `<tfoot><tr><td>Tu cartera</td>${ra.cartera.map(v =>
@@ -1049,7 +1315,7 @@
          <tbody>${comp.map((c, i) => {
           const m = c.metricas;
           return `<tr class="${c.real ? "destacada" : ""}">
-            <td><i class="pt" style="background:${series[i].color}"></i>${c.nombre}</td>
+            <td><i class="pt" style="background:${series[i].color}"></i>${esc(c.nombre)}</td>
             <td class="${m.rentTotal >= 0 ? "pos" : "neg"}">${G.fmtPctSigno(m.rentTotal, 1)}</td>
             <td class="${m.cagr >= 0 ? "pos" : "neg"}">${G.fmtPctSigno(m.cagr, 1)}</td>
             <td>${G.fmtPct(m.vol, 1)}</td>
@@ -1073,7 +1339,7 @@
       $("#tablaComisiones").innerHTML =
         `<thead><tr><th>Producto</th><th>Comisión</th><th>Sobre</th><th>Al año</th><th>Al mes</th></tr></thead>
          <tbody>${c.lineas.map(l => `<tr>
-            <td><i class="pt" style="background:${temaOscuro() ? l.color[1] : l.color[0]}"></i>${l.nombre}</td>
+            <td><i class="pt" style="background:${temaOscuro() ? l.color[1] : l.color[0]}"></i>${esc(l.nombre)}</td>
             <td>${G.fmtPct(l.ter, 2)}</td><td>${G.fmtEur(l.valor, 0)}</td>
             <td>${G.fmtEur(l.anual)}</td><td>${G.fmtEur(l.anual / 12)}</td></tr>`).join("")}</tbody>
          <tfoot><tr><td>Total</td><td>${G.fmtPct(c.terPonderado, 3)}</td>
@@ -1128,7 +1394,7 @@
     const v = await traeBtc();
     if (!v) return;
     estado.btcVivo = v;
-    pintarTab();
+    if (estado.tab !== "datos") pintarTab();     // no se repinta «Datos»: perdería lo que estés escribiendo
   }
 
   /* ---------------------------------------------- pestañas */
@@ -1140,8 +1406,13 @@
       return;
     }
     estado.tab = tab;
-    document.querySelectorAll("#tabs button").forEach(b =>
-      b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+    document.querySelectorAll("#tabs button[data-tab]").forEach(b => {
+      b.setAttribute("aria-selected", String(b.dataset.tab === tab));
+      b.tabIndex = b.dataset.tab === tab ? 0 : -1;
+    });
+    $("#tabs").classList.remove("masAbierto");
+    if ($("#tabMas")) $("#tabMas").setAttribute("aria-expanded", "false");
+    if (tab !== "fondos" && $("#drawer")) cierraDetalle();
     document.querySelectorAll(".panel").forEach(p => { p.hidden = p.id !== "tab-" + tab; });
     recuerda.guarda("patrimonio.tab", tab);
     pintarTab();
@@ -1154,6 +1425,8 @@
     if (estado.tab === "patrimonio") pintaPatrimonio();
     else if (estado.tab === "mes") pintaMes();
     else if (estado.tab === "fondos") pintaFondos();
+    else if (estado.tab === "riesgo") pintaRiesgo();
+    else if (estado.tab === "plan") pintaProyeccion();
     else if (estado.tab === "rendimiento") pintaRendimiento();
     else if (estado.tab === "datos" && window.Editor) window.Editor.mostrar();
   }
@@ -1186,7 +1459,28 @@
     $("#btnVideo").classList.toggle("act");
     setTimeout(pintarTab, 60);
   };
-  document.querySelectorAll("#tabs button").forEach(b => { b.onclick = () => irA(b.dataset.tab); });
+  document.querySelectorAll("#tabs button[data-tab]").forEach(b => { b.onclick = () => irA(b.dataset.tab); });
+  // Pestañas con teclado (patrón ARIA Tabs): flechas, Inicio y Fin.
+  $("#tabs").addEventListener("keydown", e => {
+    const bs = [...document.querySelectorAll("#tabs button[data-tab]")].filter(b => b.offsetParent !== null);
+    const i = bs.indexOf(document.activeElement);
+    if (i < 0) return;
+    const sig = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+    let j = sig ? (i + sig + bs.length) % bs.length : e.key === "Home" ? 0 : e.key === "End" ? bs.length - 1 : -1;
+    if (j < 0) return;
+    e.preventDefault();
+    bs[j].focus();
+    irA(bs[j].dataset.tab);
+  });
+  if ($("#tabMas")) $("#tabMas").onclick = () => {
+    const abierto = $("#tabs").classList.toggle("masAbierto");
+    $("#tabMas").setAttribute("aria-expanded", String(abierto));
+  };
+  if ($("#drawerCerrar")) {
+    $("#drawerCerrar").onclick = cierraDetalle;
+    $("#drawerVelo").onclick = cierraDetalle;
+    $("#posBuscar").addEventListener("input", e => { pos.q = e.target.value; pintaPosiciones(); });
+  }
   $("#mesSel").onchange = e => { estado.mes = +e.target.value; pintaMes(); };
   $("#mesPrev").onclick = () => { estado.mes = Math.max(0, estado.mes - 1); pintaMes(); };
   $("#mesNext").onclick = () => { estado.mes = Math.min(D.resumenMensual.length - 1, estado.mes + 1); pintaMes(); };
@@ -1202,25 +1496,29 @@
     // cualquier boton, que es justo cuando los quieres.
     const t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+    if (e.key === "Escape" && $("#drawer") && !$("#drawer").hidden) { cierraDetalle(); return; }
     if (e.key === "Escape" && filtrando()) { estado.ocultos.clear(); pintaPatrimonio(); }
-    if (e.key === "v" && !e.metaKey && !e.ctrlKey) $("#btnVideo").click();
-    if (e.key === "l" && !e.metaKey && !e.ctrlKey && estado.tab === "patrimonio") {
+    if (!e.altKey || e.metaKey || e.ctrlKey) return;
+    if (e.code === "KeyV") $("#btnVideo").click();
+    if (e.code === "KeyL" && estado.tab === "patrimonio") {
       estado.ocultos = filtrando() ? new Set() : new Set(idsCorto());
       pintaPatrimonio();
     }
-    const n = "123456".indexOf(e.key);
-    const tab = ["patrimonio", "mes", "fondos", "rendimiento", "datos", "ayuda"][n];
+    const n = "12345678".indexOf(e.key);
+    const tab = ["patrimonio", "fondos", "rendimiento", "riesgo", "mes", "plan", "datos", "ayuda"][n];
     if (n >= 0 && document.getElementById("tab-" + tab)) irA(tab);
   });
 
   let t = null;
-  window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(pintarTab, 140); });
+  window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(() => { if (estado.tab !== "datos") pintarTab(); }, 140); });
 
   const tabGuardada = recuerda.lee("patrimonio.tab");
   if (tabGuardada && document.getElementById("tab-" + tabGuardada)) {
     estado.tab = tabGuardada;
-    document.querySelectorAll("#tabs button").forEach(b =>
-      b.setAttribute("aria-selected", String(b.dataset.tab === estado.tab)));
+    document.querySelectorAll("#tabs button[data-tab]").forEach(b => {
+      b.setAttribute("aria-selected", String(b.dataset.tab === estado.tab));
+      b.tabIndex = b.dataset.tab === estado.tab ? 0 : -1;
+    });
     document.querySelectorAll(".panel").forEach(p => { p.hidden = p.id !== "tab-" + estado.tab; });
   }
 
