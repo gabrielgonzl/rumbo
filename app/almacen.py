@@ -20,12 +20,15 @@ TIPOS_MOV = {"compra": "Compra", "venta": "Venta", "dividendo": "Dividendo o cup
              "comision": "Comisión"}
 SOLO_SALDO = ("efectivo", "deuda")   # tipos que se siguen solo con saldos anotados
 
+VERSION_ACTUAL = 2   # v2: asignación objetivo y meta con fecha (campos opcionales)
+
 CARTERA_VACIA = {
-    "version": 1, "titular": "Mi patrimonio",
+    "version": VERSION_ACTUAL, "titular": "Mi patrimonio",
     "productos": [], "movimientos": [], "valoraciones": [], "pignoraciones": [],
     "comparador": [{"id": "real", "nombre": "Mi cartera real", "real": True}],
     "hitos": [10000, 25000, 50000, 100000, 250000, 500000, 1000000],
     "objetivo": {"activo": True, "importe": 100000, "etiqueta": "Próximo objetivo"},
+    "asignacion": {"objetivos": {}},
 }
 
 
@@ -37,9 +40,26 @@ class ErrorValidacion(Exception):
 
 # ---------------------------------------------------------------- disco
 
+def migra(cfg):
+    """
+    Lleva una cartera de una versión anterior a la actual. Las migraciones solo AÑADEN campos
+    opcionales: nunca borran ni reescriben lo que ya había. Devuelve True si cambió algo.
+    """
+    cambio = False
+    v = cfg.get("version", 1)
+    if v < 2:
+        cfg.setdefault("asignacion", {"objetivos": {}})
+        cfg.setdefault("pignoraciones", [])
+        cfg["version"] = 2
+        cambio = True
+    return cambio
+
+
 def carga(ruta):
     with open(ruta, "r", encoding="utf-8") as f:
-        return json.load(f)
+        cfg = json.load(f)
+    migra(cfg)       # en memoria; se escribe (con copia automática previa) la próxima vez que guardes
+    return cfg
 
 
 def guarda(ruta, cfg):
@@ -135,7 +155,7 @@ def texto(v, maximo=200):
 # ---------------------------------------------------------------- productos
 
 CAMPOS_TEXTO = ("nombre", "corto", "identificador", "codigo", "entidad", "clase", "gestora",
-                "tipoDetalle", "respaldo", "respaldoMoneda", "vivo", "papel")
+                "tipoDetalle", "respaldo", "respaldoMoneda", "vivo", "papel", "grupo", "custodia")
 
 
 def guarda_producto(cfg, datos):
@@ -274,6 +294,12 @@ def guarda_movimiento(cfg, datos):
         mov["comision"] = round(comision, 2)
     if texto(datos.get("nota")):
         mov["nota"] = texto(datos.get("nota"))
+    ff = str(datos.get("fechaFiscal") or "")[:10]
+    if ff and ff != f:
+        try:
+            mov["fechaFiscal"] = dt.date.fromisoformat(ff).isoformat()   # fecha fiscal si difiere de la real
+        except ValueError:
+            pass
     lista = cfg.setdefault("movimientos", [])
     existente = next((m for m in lista if m.get("id") == datos.get("id")), None) if datos.get("id") else None
     if existente:
@@ -463,3 +489,48 @@ def reabre_pignoracion(cfg, pid):
         x.pop(k, None)
     x["estado"] = "activa"
     return x
+
+
+# ---------------------------------------------------------------- asignación objetivo y meta
+
+def guarda_asignacion(cfg, datos):
+    """Porcentaje objetivo de cada grupo de la cartera. Los grupos sin objetivo no cuentan."""
+    errores = []
+    crudos = datos.get("objetivos")
+    if not isinstance(crudos, dict):
+        raise ErrorValidacion(["Faltan los porcentajes objetivo."])
+    objetivos = {}
+    for grupo, valor in crudos.items():
+        g = texto(grupo, 80)
+        if not g:
+            continue
+        if valor is None or (isinstance(valor, str) and not valor.strip()):
+            continue                       # vacío = sin objetivo
+        x = numero(valor, f"el objetivo de «{g}»", errores, minimo=0)
+        if x is not None and x > 100:
+            errores.append(f"El objetivo de «{g}» no puede pasar del 100 %.")
+        if x is not None and x > 0:
+            objetivos[g] = round(x, 2)
+    if sum(objetivos.values()) > 100.5:
+        errores.append(f"Los objetivos suman {sum(objetivos.values()):g} %: no pueden pasar del 100 %.")
+    if errores:
+        raise ErrorValidacion(errores)
+    cfg["asignacion"] = {"objetivos": objetivos}
+    return cfg["asignacion"]
+
+
+def guarda_meta(cfg, datos):
+    """Meta de patrimonio: importe y, si quieres, fecha para calcular cuánto aportar."""
+    errores = []
+    importe = numero(datos.get("importe"), "el importe de la meta", errores, mayor_que=0)
+    f = _fecha_libre(datos.get("fecha"), "la fecha de la meta", errores, obligatorio=False)
+    if f and f <= dt.date.today().isoformat():
+        errores.append("La fecha de la meta tiene que ser futura.")
+    if errores:
+        raise ErrorValidacion(errores)
+    meta = {"activo": True, "importe": round(importe, 2),
+            "etiqueta": texto(datos.get("etiqueta")) or "Mi meta"}
+    if f:
+        meta["fecha"] = f
+    cfg["objetivo"] = meta
+    return meta

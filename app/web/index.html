@@ -31,6 +31,7 @@
   <button data-tab="riesgo" id="t-riesgo" role="tab" aria-controls="tab-riesgo" aria-selected="false" tabindex="-1" data-prim><svg class="ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg><span class="et">Riesgo y deuda</span></button>
   <button data-tab="mes" id="t-mes" role="tab" aria-controls="tab-mes" aria-selected="false" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="et">Mes a mes</span></button>
   <button data-tab="plan" id="t-plan" role="tab" aria-controls="tab-plan" aria-selected="false" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg><span class="et">Planificación</span></button>
+  <button data-tab="fiscal" id="t-fiscal" role="tab" aria-controls="tab-fiscal" aria-selected="false" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span class="et">Fiscalidad</span></button>
   <!--solo-app--><button data-tab="datos" id="t-datos" role="tab" aria-controls="tab-datos" aria-selected="false" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg><span class="et">Datos</span></button><!--/solo-app-->
   <!--solo-app--><button data-tab="ayuda" id="t-ayuda" role="tab" aria-controls="tab-ayuda" aria-selected="false" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 2-2.5 4M12 17h.01"/></svg><span class="et">Ayuda</span></button><!--/solo-app-->
   <button type="button" id="tabMas" class="mas" aria-expanded="false" aria-controls="tabs"><svg class="ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg><span class="et">Más</span></button>
@@ -205,9 +206,24 @@
   <div id="riesgo" style="margin-top:24px"></div>
 </div>
 
+<!-- ==================================================== FISCALIDAD -->
+<div class="panel" id="tab-fiscal" role="tabpanel" aria-labelledby="t-fiscal" hidden>
+  <div id="fiscal" style="margin-top:24px"></div>
+</div>
+
 <!-- ==================================================== PLANIFICACIÓN -->
 <div class="panel" id="tab-plan" role="tabpanel" aria-labelledby="t-plan" hidden>
-  <section class="tarjeta" id="seccionProyeccion" style="margin-top:24px">
+  <section class="tarjeta" id="seccionMeta" style="margin-top:24px" aria-labelledby="metaTit">
+    <header><h2 id="metaTit">Mi meta</h2><span class="subt" id="metaSubt"></span></header>
+    <div id="metaCuerpo"></div>
+  </section>
+
+  <section class="tarjeta" id="seccionAsig" style="margin-top:16px" aria-labelledby="asigTit">
+    <header><h2 id="asigTit">Asignación objetivo</h2><span class="subt">Dónde poner tu aportación del mes, sin vender nada</span></header>
+    <div id="asigCuerpo"></div>
+  </section>
+
+  <section class="tarjeta" id="seccionProyeccion" style="margin-top:16px">
     <header>
       <h2>Si sigo así…</h2>
       <span class="subt" id="proySubt">Orientativa · sin impuestos ni inflación</span>
@@ -227,6 +243,18 @@
     <div class="hSub" id="proyNota" style="margin-bottom:12px" hidden></div>
     <div class="envGraf" id="grafProy"></div>
     <div class="hSub" id="proyResumen" style="margin-top:14px"></div>
+  </section>
+
+  <section class="tarjeta" id="seccionMC" style="margin-top:16px" aria-labelledby="mcTit">
+    <header><h2 id="mcTit">¿Y si el mercado se mueve?</h2>
+      <span class="subt">Simulación de 1.500 futuros posibles (Montecarlo) · orientativa</span></header>
+    <div class="mandos">
+      <div class="mando"><label>Volatilidad de la cartera <b id="vVolP">—</b></label><input type="range" id="rVolP" min="5" max="40" step="1" value="16"></div>
+      <div class="mando"><label>Volatilidad de la garantía <b id="vVolG">—</b></label><input type="range" id="rVolG" min="5" max="40" step="1" value="16"></div>
+    </div>
+    <div id="mcResumen" class="hSub" style="margin-bottom:12px"></div>
+    <div class="envGraf" id="grafMC"></div>
+    <p class="subt" id="mcNota" style="margin-top:10px"></p>
   </section>
 
 </div>
@@ -322,7 +350,7 @@
   // Con file:// no se puede anadir "?v=": algunos navegadores no encuentran
   // el archivo. Ahi basta con la revalidacion por fecha de modificacion.
   var sello = location.protocol === "file:" ? "" : "?v=" + Date.now();
-  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "metricas.js", "app.js", "editor.js"].forEach(function (archivo) {
+  ["datos.js", "canal.js", "graficos.js", "proyeccion.js", "metricas.js", "asignacion.js", "montecarlo.js", "app.js", "editor.js"].forEach(function (archivo) {
     var s = document.createElement("script");
     s.src = archivo + sello;
     s.async = false;
