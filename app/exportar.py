@@ -73,6 +73,9 @@ def sin_importes(datos):
     # Deuda, cuota, garantía y colchón de un préstamo permitirían deducir el factor de escala:
     # en la web sin importes no viaja ninguna pignoración.
     out.pop("pignoraciones", None)
+    out.pop("fiscal", None)       # ventas, costes y cuotas: importes absolutos sin escalar
+    if out.get("transparencia"):
+        out["transparencia"].pop("total", None)       # el total absoluto delataría el factor de escala
     if out.get("vivo"):
         out["vivo"]["titulos"] = round(datos["vivo"]["titulos"] * k, 6)
     return out
@@ -100,7 +103,7 @@ def pagina(web, datos, ocultar=False, titulo="Mi patrimonio"):
     if ocultar:
         previo += "window.OCULTAR_IMPORTES = true;\n"
     trozos = [previo + "window.DATOS = " + json.dumps(datos, ensure_ascii=False, separators=(",", ":")) + ";"]
-    trozos += [lee(n) for n in ("canal.js", "graficos.js", "proyeccion.js", "metricas.js", "app.js")]
+    trozos += [lee(n) for n in ("canal.js", "graficos.js", "proyeccion.js", "metricas.js", "asignacion.js", "montecarlo.js", "app.js")]
     scripts = "\n".join("<script>\n" + t.replace("</script>", "<\\/script>") + "\n</script>" for t in trozos)
     html, n = re.subn(r"<script>\s*/\* Carga los scripts.*?</script>", lambda m: scripts, html, flags=re.S)
     if not n:

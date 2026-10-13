@@ -82,8 +82,9 @@ body{min-height:100vh}
     gap:12px;font-size:14px;background:var(--sup2);border:1px solid var(--borde);min-height:44px;padding:10px 14px;
     text-align:left;
   }
-  .lateral.masAbierto button[data-tab="mes"]{bottom:calc(100% + 8px + 3*50px)}
-  .lateral.masAbierto button[data-tab="plan"]{bottom:calc(100% + 8px + 2*50px)}
+  .lateral.masAbierto button[data-tab="mes"]{bottom:calc(100% + 8px + 4*50px)}
+  .lateral.masAbierto button[data-tab="plan"]{bottom:calc(100% + 8px + 3*50px)}
+  .lateral.masAbierto button[data-tab="fiscal"]{bottom:calc(100% + 8px + 2*50px)}
   .lateral.masAbierto button[data-tab="datos"]{bottom:calc(100% + 8px + 50px)}
   .lateral.masAbierto button[data-tab="ayuda"]{bottom:calc(100% + 8px)}
 }
@@ -188,3 +189,97 @@ body.video .app{display:block}
   .segm button,.btn,td.acc button{min-height:36px}
 }
 @media (max-width:1180px){table.tabPos .c-clase{display:none}}
+
+/* ============================================================
+   Pantallas anchas: aprovechar el ancho en lugar de dejarlo vacío
+   ============================================================ */
+@media (min-width:1200px){
+  .contenido .env{max-width:1840px;margin:0 auto;padding-left:36px;padding-right:36px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(176px,1fr))}
+}
+/* Resumen: columna principal + columna de lo importante (alertas, neto y «Este mes») */
+@media (min-width:1360px){
+  #tab-patrimonio:not([hidden]){
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,460px);column-gap:28px;align-items:start;
+  }
+  #tab-patrimonio > *{grid-column:1;min-width:0}
+  #tab-patrimonio > #cockpit{grid-column:2;grid-row:1 / span 4;margin-top:34px}
+  #tab-patrimonio > #cockpit .cockGrid{grid-template-columns:1fr}
+  #tab-patrimonio > .rejilla2,#tab-patrimonio > section:last-of-type{grid-column:1 / -1}
+  #tab-patrimonio .hCifra{font-size:clamp(56px,5vw,88px)}
+}
+/* Posiciones y Rendimiento: tablas y gráficas con más aire horizontal */
+@media (min-width:1360px){
+  #tab-rendimiento:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  #tab-rendimiento > .tarjeta{margin-top:0!important}
+  #tab-rendimiento > #seccionComparar{grid-column:1 / -1;order:3}   /* anual y comisiones, lado a lado */
+  #tab-mes .mesTarjetas{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+/* Riesgo y deuda: préstamo a la izquierda, concentración a la derecha */
+@media (min-width:1360px){
+  #riesgo{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+  #riesgo > .tarjeta{margin-top:0!important}
+  #riesgo > .tarjeta[aria-labelledby="concTit"],#riesgo > .tarjeta[aria-labelledby="transpTit"]{grid-column:2}
+  #riesgo > .tarjeta:not([aria-labelledby="concTit"]){grid-column:1}
+}
+/* Planificación: meta y asignación a un lado, proyección al otro */
+@media (min-width:1360px){
+  #tab-plan:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  #tab-plan > .tarjeta{margin-top:0!important}
+  #tab-plan > #seccionProyeccion{grid-column:2;grid-row:1}
+  #tab-plan > #seccionMC{grid-column:2;grid-row:2}
+}
+
+/* ============================================================
+   Blindaje contra desbordes: nada puede estirar la página en horizontal
+   ============================================================ */
+.contenido,.app{overflow-x:clip}
+.tarjeta > header{min-width:0}
+.tarjeta > header > *{min-width:0}
+.segm{flex-wrap:wrap;max-width:100%}
+#segTabla{display:flex;flex-wrap:wrap;gap:2px;max-width:100%}
+.tablaEnv{max-width:100%}
+img,svg,canvas{max-width:100%}
+
+/* ============================================================
+   Formularios en línea (meta, asignación, búsqueda): mismo aspecto que los de los diálogos
+   ============================================================ */
+.contenido input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+.contenido select{
+  font:inherit;font-size:14px;color:var(--tinta);background:var(--sup2);border:1px solid var(--borde);
+  border-radius:10px;height:40px;padding:0 12px;box-sizing:border-box;min-width:0;
+  transition:border-color .12s,box-shadow .12s,background .12s;
+}
+.contenido input:hover,.contenido select:hover{border-color:color-mix(in srgb,var(--tinta3) 55%,transparent)}
+.contenido input:focus,.contenido select:focus{outline:0;background:var(--sup);border-color:var(--info);box-shadow:var(--foco)}
+.contenido input::placeholder{color:var(--tinta3);opacity:.8}
+.contenido input:disabled{opacity:.55;cursor:not-allowed}
+.contenido td input.inObjAsig,.contenido td input.inObj{height:34px;text-align:right;font-variant-numeric:tabular-nums}
+.contenido .campo > input{width:100%}
+.btn.prim{background:var(--info);border-color:var(--info);color:#fff}
+.btn.prim:hover{filter:brightness(1.08)}
+.btn.suave{border-color:transparent;background:transparent;padding:6px 9px}
+.btn.suave:hover{background:var(--sup2)}
+.btn.cargando{pointer-events:none}
+.btn.cargando > span:first-child{display:inline-block;animation:gira 1s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+
+/* ---------------------------------------------- alertas con acciones */
+.alertas{display:grid;gap:8px}
+.alerta .txt{flex:1;min-width:0}
+.alerta .acciones{display:flex;gap:6px;align-items:center;flex:none;margin-left:auto}
+@media (max-width:640px){.alerta{flex-wrap:wrap}.alerta .acciones{width:100%;justify-content:flex-end}}
+
+/* ---------------------------------------------- avisos emergentes */
+.toasts{position:fixed;right:20px;bottom:20px;z-index:90;display:grid;gap:8px;max-width:min(420px,calc(100vw - 32px))}
+.toast{display:flex;align-items:center;gap:10px;background:var(--sup);border:1px solid var(--borde);border-left:4px solid var(--info);
+  border-radius:12px;padding:11px 12px 11px 14px;box-shadow:0 14px 40px rgba(0,0,0,.35);font-size:14px;color:var(--tinta)}
+.toast > span{flex:1;min-width:0}
+.toast.ok{border-left-color:var(--ok)} .toast.danger{border-left-color:var(--danger)}
+@media (max-width:900px){.toasts{right:16px;left:16px;bottom:calc(76px + env(safe-area-inset-bottom));max-width:none}}
+body.video .toasts{display:none}
+
+/* ---------------------------------------------- Montecarlo */
+.mcKpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.mcKpis .kpi .v{font-size:22px}
+

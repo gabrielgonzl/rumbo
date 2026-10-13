@@ -405,6 +405,11 @@
       <div class="rejilla">
         ${campo("Clase de activo", `<input name="clase" list="edClases" placeholder="Renta variable global">
           <datalist id="edClases">${clases.map(c => `<option value="${esc(c)}">`).join("")}</datalist>`, "opcional")}
+        ${campo("Grupo para la asignación", `<input name="grupo" list="edGrupos" placeholder="Renta variable">
+          <datalist id="edGrupos">${[...new Set(E.cfg.productos.map(x => x.grupo).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist>`,
+          "opcional: con él defines tu reparto objetivo en Planificación")}
+        ${campo("Dónde está custodiado", `<select name="custodia"><option value="">En España</option><option value="extranjero">En el extranjero</option></select>`,
+          "para el aviso de los modelos 720/721")}
         ${campo("Color en los gráficos", `<div class="colores">${colores}</div>`)}
         <label class="interruptor ancho"><input type="checkbox" name="largoPlazo"><span class="pista"></span>
           <span><b>Inversión a largo plazo</b><small>El botón «Solo largo plazo» del panel quita lo que no lo es: colchón, cuentas…</small></span></label>

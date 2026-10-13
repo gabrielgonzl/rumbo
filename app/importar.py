@@ -122,13 +122,74 @@ def leer_csv_myinvestor(texto):
     return lotes, reembolsos
 
 
+def fecha_con_vl(serie_vl, objetivo, desde, tol=0.01):
+    """
+    Primera fecha, igual o posterior a 'desde', en la que el valor liquidativo valía 'objetivo' (±tol).
+    None si después de 'desde' no hay ninguna. Nunca se adelanta: el dinero no pudo entrar en el
+    fondo antes de la fecha fiscal que da el extracto.
+    """
+    cand = sorted(f for f, v in serie_vl.items() if f >= desde and v and abs(v / objetivo - 1) <= tol)
+    return cand[0] if cand else None
+
+
 def myinvestor_a_movimientos(producto_id, lotes, reembolsos, serie_vl):
     """
-    Convierte los lotes en compras. El extracto no trae participaciones, así que
-    se calculan como coste / valor liquidativo del día de compra. No se usa el
-    valor de mercado del extracto porque MyInvestor lo calcula con un VL de uno o
-    dos días antes y saldrían participaciones erróneas.
+    Convierte los lotes en compras.
+
+    Las participaciones salen del VALOR que MyInvestor da al lote (valor / último VL): así el
+    valor de hoy cuadra con tu banco. Pero la «fecha fiscal» del extracto no siempre es el día en
+    que ese dinero entró en el fondo (traspasos, reinversiones): si a esa fecha el VL no es
+    compatible con el coste del lote, la compra se coloca en la fecha en que sí lo fue, y la
+    fecha fiscal original se conserva aparte (fechaFiscal) para la parte fiscal.
     """
+    from .motor import valor_en
+    ks = sorted(serie_vl)
+    vl_ref = serie_vl[ks[-1]] if ks else None
+    movs, sin_vl, deducidas = [], 0, 0
+    if vl_ref:
+        for fecha, coste, valor in lotes:
+            if valor <= 0 or coste <= 0:
+                continue
+            unidades = valor / vl_ref
+            objetivo = coste / unidades                     # VL al que «debió» entrar el dinero
+            vc = valor_en(serie_vl, fecha, margen=6)
+            mv = {"fecha": fecha, "producto": producto_id, "tipo": "compra",
+                  "unidades": round(unidades, 6), "importe": coste, "nota": "MyInvestor"}
+            if not (vc and abs(vc / objetivo - 1) <= 0.03):
+                t = fecha_con_vl(serie_vl, objetivo, fecha)
+                if t and t != fecha:
+                    mv.update(fecha=t, fechaFiscal=fecha, nota="MyInvestor · fecha deducida del valor")
+                    deducidas += 1
+            movs.append(mv)
+        sin_vl = deducidas
+        for fecha, resultado in reembolsos:
+            movs.append({"fecha": fecha, "producto": producto_id, "tipo": "venta", "unidades": 0,
+                         "importe": resultado,
+                         "nota": "Plusvalía de un reembolso (MyInvestor no da la fecha de venta)"})
+        return movs, sin_vl
+    # Sin serie de precios: se estima con el valor del extracto (comportamiento anterior).
+    estimados = sorted(serie_vl[f] * v / c for f, c, v in lotes if serie_vl.get(f) and c > 0)
+    vl_extracto = estimados[len(estimados) // 2] if estimados else None
+    movs, sin_vl = [], 0
+    for fecha, coste, valor in lotes:
+        vc = serie_vl.get(fecha)
+        if vc:
+            unidades = coste / vc
+        elif vl_extracto:
+            unidades, sin_vl = valor / vl_extracto, sin_vl + 1
+        else:
+            unidades, sin_vl = 0.0, sin_vl + 1
+        movs.append({"fecha": fecha, "producto": producto_id, "tipo": "compra",
+                     "unidades": round(unidades, 6), "importe": coste, "nota": "MyInvestor"})
+    for fecha, resultado in reembolsos:
+        movs.append({"fecha": fecha, "producto": producto_id, "tipo": "venta",
+                     "unidades": 0, "importe": resultado,
+                     "nota": "Plusvalía de un reembolso (MyInvestor no da la fecha de venta)"})
+    return movs, sin_vl
+
+
+def _myinvestor_a_movimientos_antiguo(producto_id, lotes, reembolsos, serie_vl):
+    """Versión anterior (participaciones = coste / VL del día de compra). Solo como referencia."""
     # VL con el que MyInvestor valoró el extracto, para los lotes sin VL de compra.
     estimados = sorted(serie_vl[f] * v / c for f, c, v in lotes if serie_vl.get(f) and c > 0)
     vl_extracto = estimados[len(estimados) // 2] if estimados else None
@@ -431,7 +492,10 @@ def preparar_myinvestor(cfg, archivos, carpeta):
             continue
         serie = res.serie(ref, lotes[-1][0] if lotes else None)
         movs, sin_vl = myinvestor_a_movimientos(ref, lotes, reembolsos, serie)
-        if sin_vl:
+        if sin_vl and serie:
+            plan.avisos.append(f"{isin}: {sin_vl} compras con fecha deducida: la fecha fiscal del extracto no "
+                               "encaja con su coste y valor (traspasos), así que se han colocado donde sí encajan.")
+        elif sin_vl:
             plan.avisos.append(f"{isin}: {sin_vl} compras sin valor liquidativo de ese día; sus "
                                "participaciones se han estimado con el valor del extracto.")
         plan.reemplazar.append((ref, "myinvestor"))
@@ -466,7 +530,8 @@ def aplicar(cfg, plan):
     añadidos, duplicados, filas = 0, 0, []
     orden = {"compra": 0, "comision": 1, "dividendo": 2, "venta": 3}
     for mv in sorted(plan.movimientos, key=lambda m: (m["fecha"], orden.get(m["tipo"], 9))):
-        datos = {k: mv[k] for k in ("fecha", "tipo", "unidades", "importe", "comision", "nota") if mv.get(k) is not None}
+        datos = {k: mv[k] for k in ("fecha", "tipo", "unidades", "importe", "comision", "nota", "fechaFiscal")
+                 if mv.get(k) is not None}
         datos["producto"] = real(mv["producto"])
         estado = "nuevo"
         if firma({**datos, "unidades": datos.get("unidades", 0)}) in existentes:

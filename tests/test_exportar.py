@@ -21,6 +21,20 @@ class SinImportes(unittest.TestCase):
         out = exportar.sin_importes(self.datos())
         self.assertNotIn("pignoraciones", out)
 
+    def test_la_transparencia_no_lleva_el_total_absoluto(self):
+        d = self.datos()
+        d["transparencia"] = {"total": 1234.5, "items": [{"nombre": "X", "valor": 100.0, "peso": 0.08, "fuentes": [{"valor": 100.0}]}],
+                              "cobertura": [{"id": "a", "valor": 1000.0, "cubierto": 40}]}
+        out = exportar.sin_importes(d)
+        self.assertNotIn("total", out["transparencia"])
+        k = out["total"]["patrimonio"] / 1000.0
+        self.assertAlmostEqual(out["transparencia"]["items"][0]["valor"], 100.0 * k, places=1)
+
+    def test_la_fiscalidad_no_viaja_en_la_web_sin_importes(self):
+        d = self.datos()
+        d["fiscal"] = {"anos": [{"ano": 2025, "base": 1234.0, "cuota": 234.0}]}
+        self.assertNotIn("fiscal", exportar.sin_importes(d))
+
     def test_los_importes_salen_escalados(self):
         out = exportar.sin_importes(self.datos())
         self.assertNotEqual(out["total"]["patrimonio"], 1000.0)
