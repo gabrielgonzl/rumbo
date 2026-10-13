@@ -9,8 +9,11 @@
 - CI de GitHub añadido (`.github/workflows/ci.yml`): tests de Python y de Node, y construcción de la imagen.
 - Estado de partida: 83 tests de Python y 4 archivos de pruebas de Node pasan en la rama `fase3`.
 
+### Hecho el 13/10/2026
+
+- `main` contiene ya el rediseño y la Fase 3 (PR #2 y #4). La rama `auto/mejora-continua` está al día con `main`.
+- Aprobado por el usuario: encadenar hasta 10 ejecuciones (antes 6) y fusionar los PR.
+
 ### Decisiones pendientes del usuario
 
-- Fusionar los PR #2 y #3 en `main` (no lo hace la automatización).
 - Indicar el LTV máximo del contrato para medir el margen real del préstamo.
-- Si quiere que las ejecuciones desatendidas sigan encadenándose más de 6 veces.
