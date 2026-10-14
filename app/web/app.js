@@ -1093,10 +1093,15 @@
   function medidorLtv(x) {
     const r = Math.min(1, x.ratio || 0) * 100;
     const lim = x.ltvMax ? Math.min(100, x.ltvMax) : null;
-    return `<div class="medidor" role="img" aria-label="Préstamo sobre garantía: ${pctTxt(x.ratio)}${lim ? `, límite ${String(x.ltvMax).replace(".", ",")} %` : ""}">
+    const zonas = Alertas.zonasLtv(x.ltvMax);
+    const num = v => String(v).replace(".", ",");
+    const leyenda = zonas.map(z => `${z.et} desde ${num(z.en)} %`).join(" · ");
+    return `<div class="medidor" role="img" aria-label="Préstamo sobre garantía: ${pctTxt(x.ratio)}${lim ? `, límite ${num(x.ltvMax)} %` : ""}. Zonas: ${leyenda}">
       <div class="pista"><div class="nivel ${x.nivel || ""}" style="width:${r.toFixed(1)}%"></div>
-        ${lim ? `<div class="marca" style="left:${lim}%"></div><span class="marcaEt" style="left:${Math.min(Math.max(lim, 12), 88)}%">límite ${String(x.ltvMax).replace(".", ",")} %</span>` : ""}</div>
-      <div class="eje"><span>0 %</span><span>50 %</span><span>100 % de la garantía</span></div></div>`;
+        ${zonas.map(z => `<i class="zonaLtv ${z.cl}" style="left:${z.en}%"></i>`).join("")}
+        ${lim ? `<div class="marca" style="left:${lim}%"></div><span class="marcaEt" style="left:${Math.min(Math.max(lim, 12), 88)}%">límite ${num(x.ltvMax)} %</span>` : ""}</div>
+      <div class="eje"><span>0 %</span><span>50 %</span><span>100 % de la garantía</span></div>
+      <div class="zonasLey"><i class="zonaLtv warn"></i>atención desde ${num(zonas[0].en)} % <i class="zonaLtv danger"></i>riesgo alto desde ${num(zonas[1].en)} %</div></div>`;
   }
 
   function tarjetaPrestamo(x) {
@@ -1809,7 +1814,7 @@
        datos valorados a ${G.fmtFecha(D.fechaExtracto)} ·
        ${D.total.diasInvertido} días invertido.<br>
        Fuentes de precios: ${fuentes.join(", ") || "ninguna"}. En la pestaña Productos verás la de cada uno.<br>
-       Los precios vienen de servicios públicos gratuitos y pueden tener errores o retrasos: no se garantiza su exactitud.`;
+       Los precios pueden llevar retraso.`;
     if ($("#bannerDemo")) $("#bannerDemo").hidden = D.modo !== "demo";
     const K = window.CANAL;
     if (K) {

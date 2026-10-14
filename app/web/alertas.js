@@ -93,7 +93,17 @@
     return { alertas, filtrada: !!o.filtrando, descartables: !estatico };
   }
 
-  const API = { calcula, clasificaAvisos, claveLtv, DIAS_CUOTA, HORAS_PRECIOS };
+  /* Marcas de zona del medidor de LTV, en % de la garantía. Espejo de `nivel_riesgo` (pignoracion.py):
+     con límite de la entidad, atención al 75 % del límite y riesgo alto al 90 %; sin él, al 70 % y 85 %. */
+  function zonasLtv(ltvMax) {
+    const f = ltvMax ? ltvMax / 100 : null;
+    const r = v => Math.round(v * 10) / 10;
+    return f
+      ? [{ en: r(75 * f), cl: "warn", et: "atención" }, { en: r(90 * f), cl: "danger", et: "riesgo alto" }]
+      : [{ en: 70, cl: "warn", et: "atención" }, { en: 85, cl: "danger", et: "riesgo alto" }];
+  }
+
+  const API = { calcula, zonasLtv, clasificaAvisos, claveLtv, DIAS_CUOTA, HORAS_PRECIOS };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else raiz.Alertas = API;
 })(typeof window !== "undefined" ? window : globalThis);

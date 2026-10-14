@@ -28,6 +28,22 @@ class TemaCarta(unittest.TestCase):
         self.assertNotRegex(css, r"(?i)url\(|@import|https?://")
         self.assertNotIn("linear-gradient", re.sub(r"/\*.*?\*/", "", css, flags=re.S))
 
+    def test_s3_la_x_sola_no_ocupa_una_linea(self):
+        css = open(os.path.join(WEB, "tema-carta.css"), encoding="utf-8").read()
+        self.assertIn(".alerta .acciones:has(> .btn:only-child)", css)
+
+    def test_s4_medidor_con_marcas_de_zona_sin_degradado(self):
+        css = open(os.path.join(WEB, "tema-carta.css"), encoding="utf-8").read()
+        self.assertIn(".medidor .zonaLtv", css)
+        js = open(os.path.join(WEB, "app.js"), encoding="utf-8").read()
+        self.assertIn("Alertas.zonasLtv", js)
+
+    def test_s5_el_aviso_legal_solo_dice_lo_de_la_exactitud_una_vez(self):
+        html = open(os.path.join(WEB, "index.html"), encoding="utf-8").read()
+        js = open(os.path.join(WEB, "app.js"), encoding="utf-8").read()
+        self.assertEqual((html + js).count("no se garantiza"), 0)
+        self.assertEqual(html.count("No se garantiza la exactitud"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

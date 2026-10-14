@@ -15,7 +15,12 @@
   yield on cost y sobre valor, barras de los últimos 12 meses, tabla por producto y por año. Si `datos.ingresos` es
   null, o en la web exportada / sin importes, no se pinta (el servidor no la envía sin importes). Comprobada en la app
   real con dividendos añadidos a una copia temporal de la demo: 1280 y 390 px sin desbordes ni errores de consola.
-- Estado: 118 tests de Python y 5 archivos de Node en verde.
+- **S3, S4, S5 hechos:** (S3) la ✕ de un aviso sin más botones se queda arriba a la derecha a 390 px; (S4) el medidor
+  de LTV recupera las zonas con marcas discretas (atención / riesgo alto, espejo de `nivel_riesgo`, `Alertas.zonasLtv`)
+  y una leyenda en texto, sin degradado; (S5) el pie ya no repite «no se garantiza la exactitud» (solo el aviso legal).
+  Comprobado en la app real con un préstamo de prueba en una copia temporal de la demo: 390/1280, claro/oscuro, sin
+  desbordes ni errores. Un primer intento chocaba con la clase `.zona` ya existente (se renombró a `.zonaLtv`).
+- Estado: 121 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 

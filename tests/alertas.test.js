@@ -103,3 +103,9 @@ assert.ok(r.alertas.some(a => a.clave === clave));
 assert.equal(r.descartables, false);
 
 console.log("alertas.test.js: todo en orden");
+
+// S4: marcas de zona del medidor, espejo de nivel_riesgo (75 % / 90 % del límite; sin límite 70 / 85).
+assert.deepEqual(A.zonasLtv(70).map(z => z.en), [52.5, 63]);
+assert.deepEqual(A.zonasLtv(null).map(z => z.en), [70, 85]);
+assert.deepEqual(A.zonasLtv(undefined).map(z => z.cl), ["warn", "danger"]);
+console.log("alertas.test.js (zonas): todo en orden");
