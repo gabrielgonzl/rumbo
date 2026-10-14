@@ -26,7 +26,7 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 | V2 | Fase 2: componentes (hoja, rúbrica, KPI, alertas al margen, tablas, badges) | A | hecho | disenador-ui | Capturas 390/1280 en ambos temas sin desbordes |
 | V3 | Fase 3: gráficos (paleta 2 tonos, cuadrícula, etiquetas directas, tabla alternativa) | B | hecho (aria-label, paleta de dos tonos por tema desde V1, cuadrícula, etiquetas directas; la tabla alternativa no se hizo) | disenador-ui | `aria-label` en todos los SVG |
 | V4 | Fase 4: composición del Resumen y estados vacíos con rosa de los vientos | B | hecho (parcial: la pregunta «¿cuánto tengo / voy bien / qué miro?» cabe en 576 px; el gráfico empieza a 658 px, no completo a 800) | disenador-ui | Las 3 preguntas se responden sin scroll a 1280×800 |
-| V5 | Fase 5: auditoría de contraste y capturas de referencia | B | pendiente | verificador | Informe de contraste sin fallos |
+| V5 | Fase 5: auditoría de contraste y capturas de referencia | B | hecho (`docs/auto/contraste.md`; capturas de referencia no regeneradas) | verificador | Informe de contraste sin fallos |
 
 ## Proceso
 

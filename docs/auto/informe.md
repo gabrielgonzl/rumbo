@@ -53,7 +53,11 @@
   el gráfico entero sin scroll: el criterio «sin scroll» se cumple para las tres preguntas, no para el gráfico.
   Estados vacíos con rosa de los vientos (Este mes, Ingresos, Fiscalidad). Sin desbordes a 390 y 1280, claro y oscuro,
   sin errores de consola; ninguna cifra cambia.
-- Estado: 144 tests de Python y 5 archivos de Node en verde.
+- **V5 hecho:** `tests/test_contraste.py` (118 pares de tokens en ambos temas, todos ≥ mínimo WCAG; peor texto 4,64:1,
+  peor gráfico 4,23:1) y comprobación del texto renderizado en las 9 pestañas (`docs/auto/contraste_vivo.js`).
+  Un fallo real corregido: filtros apagados con opacidad 0,42 (1,85:1). Informe en `docs/auto/contraste.md`.
+  No se regeneraron capturas de referencia a 390/768/1920.
+- Estado: 146 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 

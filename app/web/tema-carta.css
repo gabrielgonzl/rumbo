@@ -192,3 +192,8 @@ table.tabPos tr.grupo td{letter-spacing:.04em}
 p.vacio:has(> .rosa){display:flex;flex-direction:column;align-items:center;gap:8px}
 .vacio .rosa{width:24px;height:24px;fill:none;stroke:var(--tinta3);stroke-width:1.25;stroke-linejoin:round}
 #grafPrincipal + .filtros{margin:12px 0 0}   /* la leyenda/filtros van bajo el gráfico (V4) */
+
+/* V5: un filtro apagado no baja la opacidad (el texto no llegaría a 4,5:1): tinta apagada + tachado + marca hueca. */
+.filtro[aria-pressed="false"]{opacity:1;color:var(--tinta3)}
+.filtro[aria-pressed="false"] .im{color:var(--tinta3)}
+.filtro.preset[aria-pressed="false"]{color:var(--tinta2)}
