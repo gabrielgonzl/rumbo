@@ -57,6 +57,19 @@ class TemaCarta(unittest.TestCase):
                                 or "posicion" in ctx, ctx)
         self.assertTrue(os.path.exists(os.path.join(RAIZ, "docs", "GLOSARIO.md")))
 
+    def test_v4_el_grafico_sube_y_los_kpis_secundarios_bajan(self):
+        html = open(os.path.join(WEB, "index.html"), encoding="utf-8").read()
+        i = lambda t: html.index(t)
+        self.assertLess(i('id="cockpit"'), i('id="grafPrincipal"'))
+        self.assertLess(i('id="grafPrincipal"'), i('id="filtros"'))      # filtros como leyenda, bajo el gráfico
+        self.assertLess(i('id="filtros"'), i('id="kpis"'))
+
+    def test_v4_estados_vacios_con_rosa_de_los_vientos(self):
+        js = open(os.path.join(WEB, "app.js"), encoding="utf-8").read()
+        self.assertIn("const ICO_ROSA", js)
+        self.assertIn('aria-hidden="true"', js[js.index("const ICO_ROSA"):js.index("const ICO_ROSA") + 300])
+        self.assertGreaterEqual(js.count("${ICO_ROSA}"), 4)
+
 
 if __name__ == "__main__":
     unittest.main()

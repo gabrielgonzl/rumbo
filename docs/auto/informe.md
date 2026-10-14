@@ -47,7 +47,13 @@
   (comparador, Monte Carlo): nombre corto, marca de color y reparto de alturas para que no se pisen
   (`separaEtiquetas`, `nombreCorto`, con test). Por debajo de 560 px no se pintan y manda la leyenda. La paleta ya tenía
   dos tonos por tema desde V1 y la cuadrícula existía. **No hecho:** tabla alternativa de datos por gráfico.
-- Estado: 142 tests de Python y 5 archivos de Node en verde.
+- **V4 hecho (parcial):** en el Resumen, los seis KPI secundarios (aportado, plusvalía, TIR, ritmo, racha, peor caída)
+  pasan bajo el gráfico y los filtros de producto bajan debajo de él como leyenda; las tres preguntas (cuánto tengo,
+  cómo voy, qué miro) terminan a 576 px a 1280×800 y el gráfico empieza a 658 px (antes, a más de 1000 px). No cabe
+  el gráfico entero sin scroll: el criterio «sin scroll» se cumple para las tres preguntas, no para el gráfico.
+  Estados vacíos con rosa de los vientos (Este mes, Ingresos, Fiscalidad). Sin desbordes a 390 y 1280, claro y oscuro,
+  sin errores de consola; ninguna cifra cambia.
+- Estado: 144 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 

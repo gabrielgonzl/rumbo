@@ -863,6 +863,8 @@
     `stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const ICO_ALERTA = ico('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>');
   const ICO_INFO = ico('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>');
+  // Rosa de los vientos (motivo de la dirección visual): marca los estados vacíos y siempre es decorativa.
+  const ICO_ROSA = '<svg class="rosa" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 3.5l2 6.5 6.5 2-6.5 2-2 6.5-2-6.5-6.5-2 6.5-2z"/></svg>';
   const ICO_LOCK = ico('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>');
   const pctTxt = (x, d = 1) => x == null ? "—" : G.fmtPct(x, d);
   const NIVEL_ET = { bajo: "Holgado", medio: "Atención", alto: "Ajustado", peligro: "Por encima del límite" };
@@ -1005,7 +1007,7 @@
         <section class="tarjeta estaMes" aria-labelledby="estaMesTit">
           <header><h2 id="estaMesTit">Este mes</h2></header>
           ${esteMes.length ? `<ul>${esteMes.map(i => `<li><span class="cuando">${i.cuando}</span><span>${i.t}</span></li>`).join("")}</ul>`
-            : '<p class="vacio">Nada pendiente: todo al día.</p>'}
+            : `<p class="vacio">${ICO_ROSA}Nada pendiente: todo al día.</p>`}
         </section>
       </div>`;
     el.querySelectorAll("[data-ir]").forEach(b => { b.onclick = () => irA(b.dataset.ir); });
@@ -1216,7 +1218,7 @@
     if (!I || window.OCULTAR_IMPORTES || window.ESTATICO) { cont.innerHTML = ""; return; }
     if (!I.porMes.length) {
       cont.innerHTML = `<section class="tarjeta"><header><h2>Ingresos</h2></header>
-        <p class="vacio">Aún no has anotado ningún dividendo ni interés cobrado.</p></section>`;
+        <p class="vacio">${ICO_ROSA}Aún no has anotado ningún dividendo ni interés cobrado.</p></section>`;
       return;
     }
     // Últimos 12 meses naturales, con los meses sin cobro a cero.
@@ -1266,7 +1268,7 @@
     const anos = F.anos.map(a => a.ano);
     if (!anos.length) {
       cont.innerHTML = `<section class="tarjeta"><header><h2>Fiscalidad</h2></header>
-        <p class="vacio">Aún no has anotado ninguna venta ni dividendo: no hay nada que declarar de momento.</p></section>${tarjeta720(F)}`;
+        <p class="vacio">${ICO_ROSA}Aún no has anotado ninguna venta ni dividendo: no hay nada que declarar de momento.</p></section>${tarjeta720(F)}`;
       return;
     }
     if (fis.ano == null || !anos.includes(fis.ano)) fis.ano = anos[anos.length - 1];
@@ -1298,7 +1300,7 @@
       <section class="tarjeta" style="margin-top:16px" aria-labelledby="fisVentas">
         <header><h2 id="fisVentas">Ventas de ${a.ano}</h2><span class="subt">Primeras compras, primeras ventas (FIFO) por producto</span></header>
         ${filas ? `<div class="tablaEnv"><table class="dt stress"><thead><tr><th>Fecha</th><th>Producto</th><th>Unidades</th><th>Importe</th><th>Coste</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>${filas}</tbody></table></div>`
-          : '<p class="vacio">No hay ventas anotadas este año.</p>'}
+          : `<p class="vacio">${ICO_ROSA}No hay ventas anotadas este año.</p>`}
         ${a.arrastrePendiente.length ? `<p class="subt" style="margin-top:12px"><b>Pérdidas por compensar</b> (caducan a los ${F.anosArrastre} años): ${
           a.arrastrePendiente.map(x => `${G.fmtEur(x.importe)} de ${x.ano}`).join(" · ")}.</p>` : ""}
       </section>
