@@ -94,6 +94,25 @@
     const partes = datos.map(d => `${d.nombre} ${fmtPct(d.valor / total, 0)}`);
     return `Reparto en ${datos.length} partes: ${partes.join(", ")}.`;
   }
+  /* Etiquetas directas al final de cada serie: reparte sus alturas para que no se pisen.
+     ys = posiciones deseadas (px); devuelve las ajustadas, en el mismo orden, dentro de [min, max]. */
+  function separaEtiquetas(ys, hueco, min, max) {
+    const orden = ys.map((y, i) => ({ y, i })).sort((a, b) => a.y - b.y);
+    orden.forEach((o, k) => { o.y = Math.max(o.y, k ? orden[k - 1].y + hueco : min); });
+    for (let k = orden.length - 1; k >= 0; k--) {
+      const tope = k === orden.length - 1 ? max : orden[k + 1].y - hueco;
+      if (orden[k].y > tope) orden[k].y = tope;
+    }
+    const out = new Array(ys.length);
+    orden.forEach(o => { out[o.i] = o.y; });
+    return out;
+  }
+  /* «Bueno (1 de cada 10 acaba por encima)» -> «Bueno»; recorta lo que siga siendo largo. */
+  function nombreCorto(n, max) {
+    const base = String(n).split(" (")[0].trim();
+    return base.length > max ? base.slice(0, max - 1).trimEnd() + "…" : base;
+  }
+
   function tituloDe(cont, cfg, porDefecto) {
     if (cfg && cfg.titulo) return cfg.titulo;
     if (cont && cont.getAttribute && cont.getAttribute("data-titulo")) return cont.getAttribute("data-titulo");
@@ -171,7 +190,8 @@
     cont.innerHTML = "";
     const W = Math.max(cont.clientWidth, 320);
     const H = cfg.alto || 320;
-    const P = { t: 14, r: 14, b: 26, l: 62 };
+    const conEtiquetas = W >= 560 && cfg.series.filter(s => s.valores.some(v => v)).length > 1;
+    const P = { t: 14, r: conEtiquetas ? 124 : 14, b: 26, l: 62 };
     const iw = W - P.l - P.r, ih = H - P.t - P.b;
     const fechas = cfg.fechas, n = fechas.length;
     const series = cfg.series.filter(s => s.valores.some(v => v));
@@ -230,6 +250,16 @@
       svg.appendChild(el("path", { d: dd, fill: "none", class: "overlay" }));
     }
     // ejes
+    if (conEtiquetas) {
+      const medio = series.map((s, k) => (y(k === 0 ? 0 : acum[k - 1][n - 1]) + y(acum[k][n - 1])) / 2);
+      const ay = separaEtiquetas(medio, 14, P.t + 6, P.t + ih - 2);
+      series.forEach((s, k) => {
+        svg.appendChild(el("line", { x1: W - P.r + 3, x2: W - P.r + 11, y1: ay[k], y2: ay[k], stroke: s.color, "stroke-width": 3 }));
+        const t = txt(W - P.r + 15, ay[k] + 4, nombreCorto(s.nombre, 17), "etiquetaSerie");
+        const tit = el("title"); tit.textContent = s.nombre; t.appendChild(tit);
+        svg.appendChild(t);
+      });
+    }
     svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: P.t + ih, y2: P.t + ih, class: "eje" }));
     indicesEjeX(n, W < 520 ? 4 : 7).forEach(i => {
       svg.appendChild(txt(x(i), H - 8, etiquetaEjeX(fechas, i, n), "ejeX",
@@ -641,7 +671,8 @@
     cont.innerHTML = "";
     const W = Math.max(cont.clientWidth, 320);
     const H = cfg.alto || 320;
-    const P = { t: 14, r: 14, b: 26, l: 62 };
+    const conEtiquetas = W >= 560;                       // en pantallas estrechas manda la leyenda
+    const P = { t: 14, r: conEtiquetas ? 124 : 14, b: 26, l: 62 };
     const iw = W - P.l - P.r, ih = H - P.t - P.b;
     const fechas = cfg.fechas, n = fechas.length;
     const series = (cfg.series || []).filter(s => s.valores.some(v => v != null));
@@ -679,6 +710,16 @@
         "stroke-linejoin": "round", "stroke-linecap": "round",
       }));
     });
+    if (conEtiquetas) {
+      const fin = series.map(s => { const u = ultimoValido(s.valores); return u == null ? P.t + ih / 2 : y(u); });
+      const ay = separaEtiquetas(fin, 14, P.t + 6, P.t + ih - 2);
+      series.forEach((s, k) => {
+        svg.appendChild(el("line", { x1: W - P.r + 3, x2: W - P.r + 11, y1: ay[k], y2: ay[k], stroke: s.color, "stroke-width": 2.25 }));
+        const t = txt(W - P.r + 15, ay[k] + 4, nombreCorto(s.nombre, 17), "etiquetaSerie");
+        const tit = el("title"); tit.textContent = s.nombre; t.appendChild(tit);
+        svg.appendChild(t);
+      });
+    }
     svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: P.t + ih, y2: P.t + ih, class: "eje" }));
     indicesEjeX(n, W < 520 ? 4 : 7).forEach(i => {
       svg.appendChild(txt(x(i), H - 8, etiquetaEjeX(fechas, i, n), "ejeX",
@@ -810,6 +851,6 @@
     fmtEur, fmtEurCorto, fmtPct, fmtPctSigno, fmtEurSigno, fmtFecha, fmtFechaCorta, fmtMes, nfNum: nfUnidades,
     areaApilada, lineaConEventos, barrasApiladas, donut, mini, escalaBonita, css,
     barrasHorizontales, barrasSimples, multiLinea, barrasAgrupadas,
-    descSerie, descReparto
+    descSerie, descReparto, separaEtiquetas, nombreCorto
   };
 })(window);

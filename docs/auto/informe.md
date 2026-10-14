@@ -43,6 +43,10 @@
   Formulario en Datos → Alertas. Comprobado en la app real: guardar, recargar, alerta y texto «más del 1 %», y error de
   validación visible. Sin préstamo sin límite: los umbrales genéricos 70/85 % no son configurables (decisión de alcance).
   `test_fase3` ahora compara con `VERSION_ACTUAL` (el cambio de versión es el esperado).
+- **V3 completada:** etiquetas directas al final de cada serie en las áreas apiladas y en las líneas múltiples
+  (comparador, Monte Carlo): nombre corto, marca de color y reparto de alturas para que no se pisen
+  (`separaEtiquetas`, `nombreCorto`, con test). Por debajo de 560 px no se pintan y manda la leyenda. La paleta ya tenía
+  dos tonos por tema desde V1 y la cuadrícula existía. **No hecho:** tabla alternativa de datos por gráfico.
 - Estado: 142 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)

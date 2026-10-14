@@ -184,3 +184,6 @@ table.tabPos tr.grupo td{letter-spacing:.04em}
   .alerta .acciones:has(> .btn:only-child){width:auto;margin-left:auto;align-self:flex-start}
   .alerta .txt{flex:1 1 0}
 }
+
+/* V3: etiqueta directa al final de cada serie (el color nunca es el único canal: va el nombre). */
+.grafico .etiquetaSerie{font-size:11.5px;fill:var(--tinta2);font-family:inherit}

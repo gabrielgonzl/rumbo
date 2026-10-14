@@ -23,4 +23,18 @@ t = G.descReparto([{ nombre: "Renta variable", valor: 750 }, { nombre: "Renta fi
 assert.ok(t.includes("Renta variable 75 %") && t.includes("Renta fija 25 %"), t);
 assert.ok(!/€/.test(t), "el reparto no debe llevar importes");
 
+// 5. Etiquetas directas: no se pisan, respetan los límites y conservan el orden de entrada.
+let ys = G.separaEtiquetas([100, 102, 104], 14, 10, 300);
+assert.ok(ys[1] - ys[0] >= 14 - 1e-9 && ys[2] - ys[1] >= 14 - 1e-9, String(ys));
+assert.ok(ys.every(v => v >= 10 && v <= 300));
+ys = G.separaEtiquetas([295, 298, 300], 14, 10, 300);          // pegadas al borde de abajo: se empujan hacia arriba
+assert.ok(ys.every(v => v <= 300) && ys[2] - ys[1] >= 14 - 1e-9 && ys[1] - ys[0] >= 14 - 1e-9, String(ys));
+ys = G.separaEtiquetas([200, 50], 14, 10, 300);                 // el orden de salida es el de entrada, no el de altura
+assert.deepEqual(ys, [200, 50]);
+assert.deepEqual(G.separaEtiquetas([], 14, 0, 100), []);
+
+// 6. Nombre corto: sin paréntesis y con tope.
+assert.equal(G.nombreCorto("Bueno (1 de cada 10 acaba por encima)", 17), "Bueno");
+assert.equal(G.nombreCorto("Un nombre larguísimo de serie", 12), "Un nombre l…");
+
 console.log("graficos.test.js: todo bien");
