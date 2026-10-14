@@ -49,5 +49,5 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 
 | ID | Tarjeta | Prio | Estado | Dueño | Criterio de aceptación |
 |---|---|---|---|---|---|
-| N1 | Acceso con clave y sesión segura para despliegue en la nube | A | en curso | ingeniero-calculo + seguridad-privacidad | Sin clave no se sirve nada salvo `/login`; tests |
-| N2 | Despliegue en GitHub Codespaces (privado) y guía para Fly.io/Render | A | en curso | orquestador | Arranca con un clic; datos fuera de git |
+| N1 | Acceso con clave y sesión segura para despliegue en la nube | A | bloqueado (descartado: la app no se despliega en la nube; `app/acceso.py` se borró) | ingeniero-calculo + seguridad-privacidad | Sin clave no se sirve nada salvo `/login`; tests |
+| N2 | Despliegue en GitHub Codespaces (privado) y guía para Fly.io/Render | A | bloqueado (descartado: la app no se despliega en la nube; `app/acceso.py` se borró) | orquestador | Arranca con un clic; datos fuera de git |

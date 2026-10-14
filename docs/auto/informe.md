@@ -57,7 +57,7 @@
   peor gráfico 4,23:1) y comprobación del texto renderizado en las 9 pestañas (`docs/auto/contraste_vivo.js`).
   Un fallo real corregido: filtros apagados con opacidad 0,42 (1,85:1). Informe en `docs/auto/contraste.md`.
   No se regeneraron capturas de referencia a 390/768/1920.
-- Estado: 146 tests de Python y 5 archivos de Node en verde.
+- Estado: 147 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 
