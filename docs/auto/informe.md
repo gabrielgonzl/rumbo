@@ -31,7 +31,12 @@
   26 KB); descarga 24 ms; carga hasta pintado 185–396 ms; pestañas 31–46 ms. El tamaño de los datos no es un cuello de
   botella en local, así que no se recorta el formato. Único valor atípico: Planificación, 216 ms por la simulación Monte
   Carlo, que se repetía al volver a la pestaña. Ahora es determinista y se memoiza (`Montecarlo.simulaMemo`): 31 ms al volver.
-- Estado: 125 tests de Python y 5 archivos de Node en verde.
+- **Q4 hecho:** `docs/GLOSARIO.md` (producto, bruto, deuda, neto, activos, aportado/prestado, plusvalía, rentabilidad vs
+  rendimiento, garantía, LTV). La interfaz usa «producto» donde decía «posición» (búsqueda, total, peso, columna);
+  «Posiciones» queda como nombre de pestaña. Test que impide reintroducirlo. README enlaza al glosario.
+- **Q5 hecho:** siete errores de importación y cuatro del servidor ahora dicen qué hacer (rellenar columna, formato de
+  número, descargar sin editar, cambiar fuente de precio, pulsar «Previsualizar»). `tests/test_mensajes_importacion.py`.
+- Estado: 131 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 

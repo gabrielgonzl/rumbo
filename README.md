@@ -13,6 +13,8 @@ Fondos, ETF, acciones, criptomonedas, oro, planes de pensiones, cuentas del banc
 
 Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil, la mejor forma de apoyarla es [suscribirte al canal de YouTube](https://www.youtube.com/channel/UCiS3qumDoE7QDwzo_ChU6yQ?sub_confirmation=1) ▶, donde cuento cada mes cómo evoluciona la cartera de ejemplo.
 
+> Los términos (producto, bruto, neto, plusvalía…) están definidos en [docs/GLOSARIO.md](docs/GLOSARIO.md).
+
 > **Aviso.** Es una herramienta informativa. **No es asesoramiento financiero** ni una recomendación de compra o venta. Los precios vienen de servicios públicos gratuitos y pueden tener errores o retrasos: no se garantiza la exactitud de los datos. La cartera de ejemplo que trae es la cartera real del autor, con fines divulgativos.
 
 ---

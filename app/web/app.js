@@ -1032,7 +1032,7 @@
       const c = va == null ? -1 : vb == null ? 1 : typeof va === "string" ? va.localeCompare(vb, "es") : va - vb;
       return o.desc ? -c : c;
     };
-    const cols = [["nombre", "Posición", false], ["clase", "Categoría", false], ["peso", "Peso", true], ["valor", "Valor", true],
+    const cols = [["nombre", "Producto", false], ["clase", "Categoría", false], ["peso", "Peso", true], ["valor", "Valor", true],
       ["plus", "Plusvalía", true], ["pct", "Rentab.", true], ["tir", "TIR", true]];
     const cabecera = cols.map(([c, et]) => {
       const act = o.col === c;
@@ -1057,8 +1057,8 @@
         });
     }
     const total = filas.reduce((a, f) => a + f.valor, 0);
-    tabla.innerHTML = `<thead><tr>${cabecera}</tr></thead><tbody>${cuerpo || '<tr><td colspan="7" class="vacio">Ninguna posición coincide con la búsqueda.</td></tr>'}</tbody>
-      <tfoot><tr class="filaTotal"><td colspan="3">Total ${filas.length} posiciones</td><td>${G.fmtEur(total)}</td><td colspan="3"></td></tr></tfoot>`;
+    tabla.innerHTML = `<thead><tr>${cabecera}</tr></thead><tbody>${cuerpo || '<tr><td colspan="7" class="vacio">Ningún producto coincide con la búsqueda.</td></tr>'}</tbody>
+      <tfoot><tr class="filaTotal"><td colspan="3">Total ${filas.length} productos</td><td>${G.fmtEur(total)}</td><td colspan="3"></td></tr></tfoot>`;
     $("#posNota").textContent = pos.agrupar === "ninguno" ? "Pulsa una fila para ver su ficha" : "Agrupadas · pulsa una fila para ver su ficha";
     tabla.querySelectorAll("th.orden").forEach(th => {
       const act = () => { const c = th.dataset.c; pos.orden = { col: c, desc: pos.orden.col === c ? !pos.orden.desc : c !== "nombre" && c !== "clase" }; pintaPosiciones(); };
@@ -1325,10 +1325,10 @@
         <p class="vacio">${window.ESTATICO ? "Esta versión exportada no incluye los préstamos." : "No tienes ninguna pignoración anotada. Si pignoras activos para pedir un préstamo, anótala en Datos → Pignoraciones y aquí verás tu margen, el estrés de mercado y el calendario."}</p></section>`}
       ${tarjetaTransparencia()}
       <section class="tarjeta" style="margin-top:16px" aria-labelledby="concTit">
-        <header><h2 id="concTit">Concentración</h2><span class="subt">Peso de cada posición sobre lo que tienes invertido (sin efectivo)</span></header>
+        <header><h2 id="concTit">Concentración</h2><span class="subt">Peso de cada producto sobre lo que tienes invertido (sin efectivo)</span></header>
         <div class="conc">${top.map(t => `<div class="f ${t.peso > UMBRAL ? "alta" : ""}"><span>${esc(t.p.corto || t.p.nombre)}</span>
           <span class="b"><i style="width:${(t.peso * 100).toFixed(1)}%"></i></span><span class="p">${G.fmtPct(t.peso, 1)}</span></div>`).join("")}</div>
-        ${top.some(t => t.peso > UMBRAL) ? `<p class="subt" style="margin-top:12px">Marcadas en ámbar las posiciones que pesan más del ${Math.round(UMBRAL * 100)} %.
+        ${top.some(t => t.peso > UMBRAL) ? `<p class="subt" style="margin-top:12px">Marcados en ámbar los productos que pesan más del ${Math.round(UMBRAL * 100)} %.
           Los fondos indexados ya reparten el riesgo por dentro; una sola acción pequeña, no.</p>` : ""}
       </section>`;
     cont.querySelectorAll("[data-gestion]").forEach(b => {

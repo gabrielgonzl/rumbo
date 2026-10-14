@@ -44,6 +44,19 @@ class TemaCarta(unittest.TestCase):
         self.assertEqual((html + js).count("no se garantiza"), 0)
         self.assertEqual(html.count("No se garantiza la exactitud"), 1)
 
+    def test_q4_glosario_un_termino_por_concepto(self):
+        """«Posición» solo queda como nombre de pestaña, en «mayores posiciones» de un fondo y en «Mi posición»."""
+        js = open(os.path.join(WEB, "app.js"), encoding="utf-8").read()
+        html = open(os.path.join(WEB, "index.html"), encoding="utf-8").read()
+        permitido = ("mayores posiciones", "Mi posición")
+        sin_comentarios = lambda t: re.sub(r"(?m)^\s*//.*$|/\*.*?\*/|<!--.*?-->", "", t, flags=re.S)
+        for texto in (sin_comentarios(js), sin_comentarios(html)):
+            for m in re.finditer(r"[Pp]osici[oó]n(es)?", texto):
+                ctx = texto[max(0, m.start() - 12):m.end() + 3]
+                self.assertTrue(any(p in ctx for p in permitido) or 'id="posiciones"' in ctx or "Posiciones" in ctx
+                                or "posicion" in ctx, ctx)
+        self.assertTrue(os.path.exists(os.path.join(RAIZ, "docs", "GLOSARIO.md")))
+
 
 if __name__ == "__main__":
     unittest.main()

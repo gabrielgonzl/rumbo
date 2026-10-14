@@ -365,7 +365,7 @@ class Resolutor:
             ref = self._nuevo({"nombre": nombre, "tipo": tipo, "fuente": "manual",
                                "largoPlazo": tipo not in ("efectivo", "deuda")}, None)
         else:
-            self.plan.error(fila, "No tiene identificador ni nombre: no sé de qué producto es.")
+            self.plan.error(fila, "No tiene identificador ni nombre: no sé de qué producto es. Rellena el ISIN, el ticker o el nombre de esa fila.")
         self.cache[clave] = ref
         return ref
 
@@ -417,10 +417,10 @@ def preparar_tabla(cfg, filas, carpeta):
                           "usa compra, venta, dividendo, comision o saldo.")
             continue
         if "error" in (importe, unidades, comision):
-            plan.error(n, "Algún número no se entiende (importe, unidades o comisión).")
+            plan.error(n, "Algún número no se entiende (importe, unidades o comisión). Escríbelo solo con cifras y coma o punto decimal, sin €, % ni letras.")
             continue
         if not importe and tipo != "saldo":
-            plan.error(n, "No tiene importe.")
+            plan.error(n, "No tiene importe. Rellena esa columna (en euros, o en la moneda del producto).")
             continue
         if not ident and not nombre:
             plan.error(n, "No tiene identificador: pon el ISIN o el ticker (o, si es una cuenta, su nombre).")
@@ -438,7 +438,7 @@ def preparar_tabla(cfg, filas, carpeta):
                 cambios[moneda] = motor.serie_cambio(moneda, carpeta)
             fx = valor_en(cambios[moneda], fecha, margen=6)
             if not fx:
-                plan.error(n, f"No encuentro el cambio de {moneda} a euros del {almacen.fmt_fecha(fecha)}.")
+                plan.error(n, f"No encuentro el cambio de {moneda} a euros del {almacen.fmt_fecha(fecha)}. Pon el importe ya en euros, o vuelve a intentarlo con conexión.")
                 continue
             importe = importe * fx
             comision = comision * fx if comision else comision
@@ -454,7 +454,7 @@ def preparar_tabla(cfg, filas, carpeta):
             # Muchos extractos no dan las participaciones: se calculan con el precio de ese día.
             precio = valor_en(res.serie(ref, fecha), fecha, margen=6)
             if not precio:
-                plan.error(n, "No trae unidades y no encuentro el precio de ese día para calcularlas.")
+                plan.error(n, "No trae unidades y no encuentro el precio de ese día para calcularlas. Escribe las unidades en esa fila.")
                 continue
             neto = importe - (comision or 0) if tipo == "compra" else importe + (comision or 0)
             unidades = neto / precio
@@ -480,7 +480,7 @@ def preparar_myinvestor(cfg, archivos, carpeta):
         isin = m.group(1)
         lotes, reembolsos = leer_csv_myinvestor(contenido)
         if not lotes and not reembolsos:
-            plan.error(nombre, "No parece un extracto «Plusvalías y minusvalías» de MyInvestor, o está vacío.")
+            plan.error(nombre, "No parece un extracto «Plusvalías y minusvalías» de MyInvestor, o está vacío. Descarga ese informe desde la ficha del fondo y súbelo sin editarlo.")
             continue
         ref = res.producto(nombre, isin, "", "fondo")
         if not ref:
@@ -488,7 +488,7 @@ def preparar_myinvestor(cfg, archivos, carpeta):
         p = res.datos(ref)
         if p.get("fuente") == "manual":
             plan.error(nombre, f"«{p.get('corto') or p['nombre']}» se valora a mano: el extracto de MyInvestor "
-                               "necesita un fondo con precio en internet.")
+                               "necesita un fondo con precio en internet. Cambia su fuente de precio en Datos → Productos y vuelve a importar.")
             continue
         serie = res.serie(ref, lotes[-1][0] if lotes else None)
         movs, sin_vl = myinvestor_a_movimientos(ref, lotes, reembolsos, serie)

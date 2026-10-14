@@ -10,8 +10,8 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 | Q1 | Revisar todas las alertas y avisos: cuándo salen, texto, descartar, duplicados | A | hecho | verificador + disenador-ui | Cada alerta tiene regla documentada y test o comprobación; ningún aviso repetido entre Resumen, pie y «Este mes» |
 | Q2 | Mes a mes: separar la deuda de los componentes y no contar amortización como «mercado» (C6) | A | hecho | ingeniero-calculo | `resumen_mensual` no atribuye al mercado la bajada de deuda; test |
 | Q3 | «Aportado»: distinguir capital propio de dinero prestado (C5) en KPI y comparador | A | hecho | ingeniero-calculo | Dos cifras con definición visible; test con préstamo invertido |
-| Q4 | Revisar coherencia de textos: glosario (posición/producto, activos/neto, plusvalía) | B | pendiente | redactor | Un solo término por concepto en UI y README |
-| Q5 | Mensajes de importación (MyInvestor, plantilla, IA): claridad y errores | B | pendiente | redactor + verificador | Cada error dice qué hacer |
+| Q4 | Revisar coherencia de textos: glosario (posición/producto, activos/neto, plusvalía) | B | hecho | redactor | Un solo término por concepto en UI y README |
+| Q5 | Mensajes de importación (MyInvestor, plantilla, IA): claridad y errores | B | hecho | redactor + verificador | Cada error dice qué hacer |
 | Q6 | Bitcoin en vivo desde el servidor (`/api/vivo`), no desde el navegador | B | hecho | ingeniero-calculo | El navegador no llama a terceros; test |
 | Q7 | CSP estricta sin scripts en línea | B | hecho | disenador-ui + seguridad-privacidad | `Content-Security-Policy` activa, 0 violaciones en consola |
 | Q8 | Dividendos e ingresos: pantalla y cálculo (yield on cost) | C | hecho (cálculo + tarjeta «Ingresos por dividendos» en Fiscalidad; no viaja en la web exportada) | ingeniero-calculo + disenador-ui | Ingresos por mes/año con tests |

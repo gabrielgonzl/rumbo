@@ -305,7 +305,7 @@ def cambia(fn):
 @app.post("/api/<coleccion>")
 def api_guardar(coleccion):
     if coleccion not in GUARDAR:
-        return jsonify(ok=False, errores=["No sé guardar eso."]), 404
+        return jsonify(ok=False, errores=["No sé guardar eso: recarga la página y vuelve a intentarlo."]), 404
     datos = request.get_json(silent=True) or {}
 
     def fn(cfg):
@@ -324,7 +324,7 @@ def api_guardar(coleccion):
 @app.delete("/api/<coleccion>/<ident>")
 def api_borrar(coleccion, ident):
     if coleccion not in BORRAR:
-        return jsonify(ok=False, errores=["No sé borrar eso."]), 404
+        return jsonify(ok=False, errores=["No sé borrar eso: recarga la página y vuelve a intentarlo."]), 404
     return cambia(lambda cfg: BORRAR[coleccion](cfg, ident))
 
 
@@ -414,7 +414,7 @@ def api_importar_previsualizar():
 def api_importar_confirmar():
     plan = PLANES.pop((request.get_json(silent=True) or {}).get("token"), None)
     if plan is None:
-        return jsonify(ok=False, errores=["Esa vista previa ya no vale: vuelve a revisar el archivo."]), 400
+        return jsonify(ok=False, errores=["Esa vista previa ya no vale: vuelve a pulsar «Previsualizar» con el archivo."]), 400
     informe = {}
 
     def fn(cfg):
@@ -456,7 +456,7 @@ def valida_copia(cfg):
     """Comprueba que un JSON tiene pinta de cartera de esta app."""
     if not isinstance(cfg, dict) or not all(isinstance(cfg.get(k), list)
                                             for k in ("productos", "movimientos", "valoraciones")):
-        raise almacen.ErrorValidacion(["Ese archivo no es una copia de seguridad de esta app."])
+        raise almacen.ErrorValidacion(["Ese archivo no es una copia de seguridad de esta app. Sube el .json que descargaste en Datos → Copia de seguridad."])
     return cfg
 
 
@@ -510,7 +510,7 @@ def api_copia_subir():
     try:
         cfg = valida_copia(json.loads(importar.decodifica(f.read())))
     except ValueError:
-        return jsonify(ok=False, errores=["Ese archivo no es una copia de seguridad de esta app."]), 400
+        return jsonify(ok=False, errores=["Ese archivo no es una copia de seguridad de esta app. Sube el .json que descargaste en Datos → Copia de seguridad."]), 400
     except almacen.ErrorValidacion as e:
         return jsonify(ok=False, errores=e.errores), 400
     restaura(cfg)
