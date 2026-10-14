@@ -176,8 +176,15 @@ def controla_origen():
     return None
 
 
+# CSP estricta: solo código propio (sin scripts en línea ni eval), sin conexiones ni recursos de terceros.
+# Los estilos en línea (atributos style generados por la interfaz) se permiten: no ejecutan código.
+CSP = ("default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+       "connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+
+
 @app.after_request
 def cabeceras_de_proteccion(resp):
+    resp.headers.setdefault("Content-Security-Policy", CSP)
     resp.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")  # nadie la incrusta
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "DENY")

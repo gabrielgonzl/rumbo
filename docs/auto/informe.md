@@ -20,7 +20,14 @@
   y una leyenda en texto, sin degradado; (S5) el pie ya no repite «no se garantiza la exactitud» (solo el aviso legal).
   Comprobado en la app real con un préstamo de prueba en una copia temporal de la demo: 390/1280, claro/oscuro, sin
   desbordes ni errores. Un primer intento chocaba con la clase `.zona` ya existente (se renombró a `.zonaLtv`).
-- Estado: 121 tests de Python y 5 archivos de Node en verde.
+- **Q7 hecho:** `Content-Security-Policy` en todas las respuestas del servidor: `default-src 'none'; script-src 'self';
+  style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none';
+  form-action 'self'; frame-ancestors 'none'`. El cargador de scripts pasó de `<script>` en línea a `cargador.js`; el
+  exportador lo sustituye igual. Comprobado en la app real: 9 pestañas, 0 errores y 0 `securitypolicyviolation`.
+  Matiz: `style-src` conserva `'unsafe-inline'` porque la interfaz genera atributos `style`; no ejecutan código, pero
+  quitarlo exigiría migrarlos a clases (queda como mejora). La web exportada (un solo `.html` abierto como archivo)
+  no puede llevar cabeceras y no cambia.
+- Estado: 125 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 
