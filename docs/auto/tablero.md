@@ -16,7 +16,7 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 | Q7 | CSP estricta sin scripts en línea | B | hecho | disenador-ui + seguridad-privacidad | `Content-Security-Policy` activa, 0 violaciones en consola |
 | Q8 | Dividendos e ingresos: pantalla y cálculo (yield on cost) | C | hecho (cálculo + tarjeta «Ingresos por dividendos» en Fiscalidad; no viaja en la web exportada) | ingeniero-calculo + disenador-ui | Ingresos por mes/año con tests |
 | Q9 | Alertas configurables (umbral de concentración, LTV, desviación de asignación) | C | pendiente | disenador-ui | Umbrales guardados en la cartera con migración v3 |
-| Q10 | Rendimiento de `datos.js` (tamaño) y repintados | C | pendiente | ingeniero-calculo | Medido antes/después |
+| Q10 | Rendimiento de `datos.js` (tamaño) y repintados | C | hecho | ingeniero-calculo | Medido antes/después |
 
 ## Interfaz: dirección «Carta de navegación» (ver `docs/DIRECCION_VISUAL.md`)
 

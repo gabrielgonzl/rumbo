@@ -719,7 +719,7 @@
     const ltv = prest.length && prest[0].ltvMax ? prest[0].ltvMax / 100 : null;
     const meses = Math.round(anos * 12);
     const deuda = deudaMensual(meses);
-    const r = Montecarlo.simula({ cartera, garantia, deuda, aportacion: apor, anos, mu, sigma: mc.volP / 100,
+    const r = Montecarlo.simulaMemo({ cartera, garantia, deuda, aportacion: apor, anos, mu, sigma: mc.volP / 100,
       sigmaGarantia: mc.volG / 100, ltvMax: ltv, n: 1500, semilla: 20261012 });
 
     const base = new Date(D.fechaExtracto + "T00:00:00");

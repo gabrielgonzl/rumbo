@@ -27,6 +27,10 @@
   Matiz: `style-src` conserva `'unsafe-inline'` porque la interfaz genera atributos `style`; no ejecutan código, pero
   quitarlo exigiría migrarlos a clases (queda como mejora). La web exportada (un solo `.html` abierto como archivo)
   no puede llevar cabeceras y no cambia.
+- **Q10 hecho (medido):** cartera sintética de 8 productos × 721 días: `datos.js` = 158 KB (productos 79 KB, resumen mensual
+  26 KB); descarga 24 ms; carga hasta pintado 185–396 ms; pestañas 31–46 ms. El tamaño de los datos no es un cuello de
+  botella en local, así que no se recorta el formato. Único valor atípico: Planificación, 216 ms por la simulación Monte
+  Carlo, que se repetía al volver a la pestaña. Ahora es determinista y se memoiza (`Montecarlo.simulaMemo`): 31 ms al volver.
 - Estado: 125 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
