@@ -66,6 +66,12 @@
       }
     });
 
+    // Asignación: aviso si algún grupo se desvía del objetivo más de lo que has fijado (puntos porcentuales).
+    if (o.desvioMax != null && o.umbralDesvio != null && o.desvioMax >= o.umbralDesvio && !estatico) {
+      out.push({ tipo: "desvio", clave: `desvio:${Math.round(o.desvioMax)}`, cl: "info", ir: "plan", irEt: "Ver asignación",
+        pp: o.desvioMax, umbral: o.umbralDesvio, grupo: o.desvioGrupo || null });
+    }
+
     const c = clasificaAvisos(o.avisos);
     let hayPrecios = false;
     if (c.sinRed.length) {
@@ -94,12 +100,15 @@
   }
 
   /* Marcas de zona del medidor de LTV, en % de la garantía. Espejo de `nivel_riesgo` (pignoracion.py):
-     con límite de la entidad, atención al 75 % del límite y riesgo alto al 90 %; sin él, al 70 % y 85 %. */
-  function zonasLtv(ltvMax) {
+     con límite de la entidad, atención y riesgo alto a los % del límite configurados (por defecto 75 y 90); sin él, al 70 % y 85 %. */
+  function zonasLtv(ltvMax, umbrales) {
     const f = ltvMax ? ltvMax / 100 : null;
     const r = v => Math.round(v * 10) / 10;
+    const u = umbrales || {};
+    const a = u.ltvAtencion > 0 && u.ltvAlto > u.ltvAtencion ? u.ltvAtencion : 75;
+    const b = u.ltvAtencion > 0 && u.ltvAlto > u.ltvAtencion ? u.ltvAlto : 90;
     return f
-      ? [{ en: r(75 * f), cl: "warn", et: "atención" }, { en: r(90 * f), cl: "danger", et: "riesgo alto" }]
+      ? [{ en: r(a * f), cl: "warn", et: "atención" }, { en: r(b * f), cl: "danger", et: "riesgo alto" }]
       : [{ en: 70, cl: "warn", et: "atención" }, { en: 85, cl: "danger", et: "riesgo alto" }];
   }
 

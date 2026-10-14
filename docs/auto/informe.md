@@ -36,7 +36,14 @@
   «Posiciones» queda como nombre de pestaña. Test que impide reintroducirlo. README enlaza al glosario.
 - **Q5 hecho:** siete errores de importación y cuatro del servidor ahora dicen qué hacer (rellenar columna, formato de
   número, descargar sin editar, cambiar fuente de precio, pulsar «Previsualizar»). `tests/test_mensajes_importacion.py`.
-- Estado: 131 tests de Python y 5 archivos de Node en verde.
+- **Q9 hecho:** cartera v3 con `alertas.umbrales` (migración que solo añade, idempotente; `app/umbrales.py`):
+  concentración por producto (15 %) y por valor dentro de los fondos (5 %), desvío de la asignación (5 pp) y niveles de
+  atención/riesgo alto del préstamo (75 % / 90 % del límite). Validación en `almacen.guarda_alertas`; `nivel_riesgo` y
+  las zonas del medidor los usan (por defecto, idénticos a antes); nueva alerta «desvío de la asignación» en el Resumen.
+  Formulario en Datos → Alertas. Comprobado en la app real: guardar, recargar, alerta y texto «más del 1 %», y error de
+  validación visible. Sin préstamo sin límite: los umbrales genéricos 70/85 % no son configurables (decisión de alcance).
+  `test_fase3` ahora compara con `VERSION_ACTUAL` (el cambio de versión es el esperado).
+- Estado: 142 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 

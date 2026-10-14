@@ -12,7 +12,7 @@ import os
 import re
 import unicodedata
 
-from . import pignoracion
+from . import pignoracion, umbrales as umbrales_mod
 from .motor import TIPOS, FUENTES, num_es
 
 COPIAS_MAX = 20
@@ -20,7 +20,8 @@ TIPOS_MOV = {"compra": "Compra", "venta": "Venta", "dividendo": "Dividendo o cup
              "comision": "Comisión"}
 SOLO_SALDO = ("efectivo", "deuda")   # tipos que se siguen solo con saldos anotados
 
-VERSION_ACTUAL = 2   # v2: asignación objetivo y meta con fecha (campos opcionales)
+VERSION_ACTUAL = 3   # v2: asignación objetivo y meta con fecha · v3: umbrales de las alertas (opcionales)
+UMBRALES_POR_DEFECTO = umbrales_mod.POR_DEFECTO
 
 CARTERA_VACIA = {
     "version": VERSION_ACTUAL, "titular": "Mi patrimonio",
@@ -29,6 +30,7 @@ CARTERA_VACIA = {
     "hitos": [10000, 25000, 50000, 100000, 250000, 500000, 1000000],
     "objetivo": {"activo": True, "importe": 100000, "etiqueta": "Próximo objetivo"},
     "asignacion": {"objetivos": {}},
+    "alertas": {"umbrales": dict(UMBRALES_POR_DEFECTO)},
 }
 
 
@@ -52,7 +54,15 @@ def migra(cfg):
         cfg.setdefault("pignoraciones", [])
         cfg["version"] = 2
         cambio = True
+    if v < 3:
+        cfg.setdefault("alertas", {"umbrales": dict(UMBRALES_POR_DEFECTO)})
+        cfg["version"] = 3
+        cambio = True
     return cambio
+
+
+def umbrales(cfg):
+    return umbrales_mod.de(cfg)
 
 
 def carga(ruta):
@@ -517,6 +527,38 @@ def guarda_asignacion(cfg, datos):
         raise ErrorValidacion(errores)
     cfg["asignacion"] = {"objetivos": objetivos}
     return cfg["asignacion"]
+
+
+def guarda_alertas(cfg, datos):
+    """Umbrales de las alertas. Lo que no se envíe se queda como estaba; vacío vuelve al valor de por defecto."""
+    errores = []
+    crudos = datos.get("umbrales")
+    if not isinstance(crudos, dict):
+        raise ErrorValidacion(["Faltan los umbrales de las alertas."])
+    etiquetas = {"concentracionProducto": ("el peso máximo de un producto", 1, 100),
+                 "concentracionValor": ("el peso máximo de un valor dentro de tus fondos", 1, 100),
+                 "desviacionAsignacion": ("el desvío de la asignación", 0.5, 50),
+                 "ltvAtencion": ("el nivel de atención del préstamo", 10, 99),
+                 "ltvAlto": ("el nivel de riesgo alto del préstamo", 11, 100)}
+    nuevos = umbrales(cfg)
+    for k, (et, lo, hi) in etiquetas.items():
+        if k not in crudos:
+            continue
+        v = crudos[k]
+        if v is None or (isinstance(v, str) and not v.strip()):
+            nuevos[k] = UMBRALES_POR_DEFECTO[k]
+            continue
+        x = numero(v, et, errores, minimo=lo)
+        if x is not None and x > hi:
+            errores.append(f"{et[0].upper() + et[1:]} no puede pasar de {hi:g}.")
+        elif x is not None:
+            nuevos[k] = round(x, 2)
+    if nuevos["ltvAlto"] <= nuevos["ltvAtencion"]:
+        errores.append("El nivel de riesgo alto tiene que ser mayor que el de atención.")
+    if errores:
+        raise ErrorValidacion(errores)
+    cfg["alertas"] = {"umbrales": nuevos}
+    return cfg["alertas"]
 
 
 def guarda_meta(cfg, datos):

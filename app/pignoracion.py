@@ -15,6 +15,8 @@ import calendar
 import datetime as dt
 from decimal import ROUND_HALF_UP, Decimal
 
+from . import umbrales
+
 REDONDEO = 2
 
 
@@ -136,6 +138,7 @@ def resumen(cfg, valores, hoy):
     Añade la garantía: lo que valen hoy los activos pignorados y cuánto margen hay.
     """
     nombres = {p["id"]: (p.get("corto") or p.get("nombre")) for p in cfg.get("productos", [])}
+    niveles = niveles_de(cfg)
     salida = []
     for p in cfg.get("pignoraciones", []):
         if _fecha(p["fecha"]) > hoy:
@@ -158,10 +161,10 @@ def resumen(cfg, valores, hoy):
             # Lo que habría que amortizar (o garantía que añadir) para volver al límite.
             e["amortizarParaLimite"] = round(max(0.0, deuda - ltv * garantia), 2) if ltv else None
             e["garantiaAnadirParaLimite"] = round(max(0.0, deuda / ltv - garantia), 2) if ltv else None
-            e["nivel"] = nivel_riesgo(e["ratio"], ltv)
+            e["nivel"] = nivel_riesgo(e["ratio"], ltv, *niveles)
             e["stress"] = [{"caida": c, "garantia": round(garantia * (1 - c), 2),
                             "ratio": round(deuda / (garantia * (1 - c)), 4),
-                            "nivel": nivel_riesgo(deuda / (garantia * (1 - c)), ltv)}
+                            "nivel": nivel_riesgo(deuda / (garantia * (1 - c)), ltv, *niveles)}
                            for c in STRESS]
         else:
             for k in ("ratio", "caidaHastaIgualar", "caidaHastaLimite", "garantiaMinima", "superaLimite",
@@ -176,10 +179,20 @@ def resumen(cfg, valores, hoy):
 STRESS = (0.10, 0.20, 0.30, 0.40)
 
 
-def nivel_riesgo(ratio, ltv_max=None):
+def niveles_de(cfg):
+    """(atención, alto) como fracción del límite de la entidad, de los umbrales configurados (75 % y 90 %)."""
+    u = umbrales.de(cfg)
+    a, b = u["ltvAtencion"], u["ltvAlto"]
+    if not 0 < a < b <= 100:
+        a, b = umbrales.POR_DEFECTO["ltvAtencion"], umbrales.POR_DEFECTO["ltvAlto"]
+    return a / 100, b / 100
+
+
+def nivel_riesgo(ratio, ltv_max=None, atencion=0.75, alto=0.9):
     """
     'bajo' | 'medio' | 'alto' | 'peligro'. Con el límite de la entidad, se mide contra él
-    (peligro = ya lo superas); sin él, con umbrales genéricos (70 % y 85 % de la garantía).
+    (peligro = ya lo superas; «medio» desde `atencion` del límite y «alto» desde `alto`);
+    sin él, con umbrales genéricos (70 % y 85 % de la garantía).
     """
     if ratio is None:
         return None
@@ -189,7 +202,7 @@ def nivel_riesgo(ratio, ltv_max=None):
         if ratio > ltv_max:
             return "peligro"
         uso = ratio / ltv_max
-        return "alto" if uso >= 0.9 else "medio" if uso >= 0.75 else "bajo"
+        return "alto" if uso >= alto else "medio" if uso >= atencion else "bajo"
     return "alto" if ratio >= 0.85 else "medio" if ratio >= 0.7 else "bajo"
 
 

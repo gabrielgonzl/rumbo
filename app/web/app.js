@@ -912,14 +912,32 @@
       case "viejo":
         return `Precio desactualizado: <b>${esc(lista(a.nombres))}</b>. El último que tengo es del ${G.fmtFecha(a.fecha)}` +
           (a.dias != null ? ` (hace ${a.dias} días).` : ".");
+      case "desvio":
+        return `Tu cartera se desvía <b>${String(a.pp.toFixed(1)).replace(".", ",")} puntos</b> de lo que querías` +
+          `${a.grupo ? ` en <b>${esc(a.grupo)}</b>` : ""} (tu aviso salta a partir de ${String(a.umbral).replace(".", ",")}). Revisa cómo repartir tu próxima aportación.`;
       case "datosViejos":
         return `Los precios son de hace ${a.dias} días. Pulsa «Actualizar precios».`;
     }
     return "";
   }
 
+  const UMBRALES_DEFECTO = { concentracionProducto: 15, concentracionValor: 5, desviacionAsignacion: 5, ltvAtencion: 75, ltvAlto: 90 };
+  const umbralesAl = () => Object.assign({}, UMBRALES_DEFECTO, (D.alertas && D.alertas.umbrales) || {});
+
+  // Mayor desvío (en puntos) entre lo que tienes y el objetivo de cada grupo; null si no hay objetivos.
+  function desvioAsignacion() {
+    const obj = (D.asignacion && D.asignacion.objetivos) || {};
+    if (!Object.keys(obj).length) return { max: null, grupo: null };
+    const filas = Asignacion.reparto(gruposAsignacion().map(g => ({ id: g.id, valor: g.valor, objetivo: obj[g.id] != null ? obj[g.id] : null })), 0);
+    let max = null, grupo = null;
+    filas.forEach(f => { if (f.desviacion != null && (max == null || Math.abs(f.desviacion) > max)) { max = Math.abs(f.desviacion); grupo = f.id; } });
+    return { max, grupo };
+  }
+
   function alertas() {
+    const dv = desvioAsignacion();
     return Alertas.calcula({
+      desvioMax: dv.max, desvioGrupo: dv.grupo, umbralDesvio: umbralesAl().desviacionAsignacion,
       pignoraciones: D.pignoraciones, avisos: D.avisos, preciosActualizados: D.preciosActualizados,
       ahora: Date.now(), fechaExtracto: D.fechaExtracto, estatico: !!window.ESTATICO, demo: D.modo === "demo",
       ocultas: ocultas(), filtrando: filtrando(),
@@ -967,7 +985,7 @@
       ${filtrada ? `<p class="subt" style="margin:0 0 10px">Vista filtrada: esta zona (avisos, patrimonio y rentabilidad reciente) es de toda la cartera.</p>` : ""}
       ${al.length ? `<div class="alertas">${al.map(a => `<div class="alerta ${a.cl}" role="${a.cl === "danger" ? "alert" : "status"}">
           ${a.cl === "info" ? ICO_INFO : ICO_ALERTA}<div class="txt">${textoAlerta(a)}</div>
-          <div class="acciones">${a.ir ? `<button class="btn" data-ir="${a.ir}">Ver riesgo</button>` : ""}
+          <div class="acciones">${a.ir ? `<button class="btn" data-ir="${a.ir}">${a.irEt || "Ver riesgo"}</button>` : ""}
             ${a.accion === "actualizar" ? `<button class="btn" data-actualizar>Actualizar</button>` : ""}
             ${!a.descartable ? "" : `<button class="btn suave" data-cierra="${esc(a.clave)}" aria-label="Descartar este aviso" title="Descartar: volverá a salir si la situación cambia">✕</button>`}</div>
         </div>`).join("")}</div>` : ""}
@@ -1093,7 +1111,7 @@
   function medidorLtv(x) {
     const r = Math.min(1, x.ratio || 0) * 100;
     const lim = x.ltvMax ? Math.min(100, x.ltvMax) : null;
-    const zonas = Alertas.zonasLtv(x.ltvMax);
+    const zonas = Alertas.zonasLtv(x.ltvMax, umbralesAl());
     const num = v => String(v).replace(".", ",");
     const leyenda = zonas.map(z => `${z.et} desde ${num(z.en)} %`).join(" · ");
     return `<div class="medidor" role="img" aria-label="Préstamo sobre garantía: ${pctTxt(x.ratio)}${lim ? `, límite ${num(x.ltvMax)} %` : ""}. Zonas: ${leyenda}">
@@ -1169,7 +1187,7 @@
     const T = D.transparencia;
     if (!T || !T.items || !T.items.length) return "";
     const top = T.items.slice(0, 10);
-    const UMBRAL = 0.05;
+    const UMBRAL = umbralesAl().concentracionValor / 100;
     const cub = (T.cobertura || []).length;
     return `<section class="tarjeta" style="margin-top:16px" aria-labelledby="transpTit">
       <header><h2 id="transpTit">Qué tienes de verdad dentro</h2>
@@ -1319,7 +1337,7 @@
     const activos = TODOS().filter(enseñable).filter(p => valorDe(p) > 0 && p.tipoClave !== "efectivo");
     const total = activos.reduce((a, p) => a + valorDe(p), 0) || 1;
     const top = activos.map(p => ({ p, peso: valorDe(p) / total })).sort((a, b) => b.peso - a.peso).slice(0, 8);
-    const UMBRAL = 0.15;
+    const UMBRAL = umbralesAl().concentracionProducto / 100;
     cont.innerHTML = `
       ${lista.length ? lista.map(tarjetaPrestamo).join("") : `<section class="tarjeta"><header><h2>Préstamos con garantía</h2></header>
         <p class="vacio">${window.ESTATICO ? "Esta versión exportada no incluye los préstamos." : "No tienes ninguna pignoración anotada. Si pignoras activos para pedir un préstamo, anótala en Datos → Pignoraciones y aquí verás tu margen, el estrés de mercado y el calendario."}</p></section>`}

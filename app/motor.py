@@ -20,7 +20,7 @@ import urllib.request
 import datetime as dt
 from collections import defaultdict
 
-from . import exposicion, fiscal, ingresos, pignoracion
+from . import exposicion, fiscal, ingresos, pignoracion, umbrales
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -1400,6 +1400,7 @@ def construir(cfg, carpeta, descargar=True):
                                   "total": total_mes},
         "objetivo": cfg.get("objetivo"),
         "asignacion": cfg.get("asignacion") or {"objetivos": {}},
+        "alertas": {"umbrales": umbrales.de(cfg)},
         "transparencia": transparencia,
         "fiscal": resumen_fiscal,
         "ingresos": resumen_ingresos,

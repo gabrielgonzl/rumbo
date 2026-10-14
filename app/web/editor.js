@@ -165,7 +165,7 @@
       <div id="edAvisos" class="avisos"></div><div id="edCuerpo"></div>`;
     cont.innerHTML = html;
 
-    const vistas = [["productos", "Productos"], ["movimientos", "Movimientos"], ["saldos", "Saldos y valores"], ["pignoraciones", "Pignoraciones"], ["importar", "Importar"], ["copias", "Copias y web"]];
+    const vistas = [["productos", "Productos"], ["movimientos", "Movimientos"], ["saldos", "Saldos y valores"], ["pignoraciones", "Pignoraciones"], ["alertas", "Alertas"], ["importar", "Importar"], ["copias", "Copias y web"]];
     const seg = $("#edVistas");
     vistas.forEach(([id, et]) => {
       const b = document.createElement("button");
@@ -175,7 +175,7 @@
       seg.appendChild(b);
     });
     $("#edCuerpo").innerHTML = ({ productos: vistaProductos, movimientos: vistaMovimientos, saldos: vistaSaldos,
-      pignoraciones: vistaPignoraciones, importar: vistaImportar, copias: vistaCopias }[E.vista] || vistaProductos)();
+      pignoraciones: vistaPignoraciones, alertas: vistaAlertas, importar: vistaImportar, copias: vistaCopias }[E.vista] || vistaProductos)();
     if (E.vista === "importar" || E.vista === "copias") conectaImportar();
     const filtro = $("#edFiltro");
     if (filtro) filtro.onchange = e => { E.filtro = e.target.value; pinta(); };
@@ -861,6 +861,36 @@
   /* ---------------------------------------------- copias y web */
   const COP = { lista: null };
 
+  /* ---------------------------------------------- alertas: umbrales */
+  const UMBRALES_ED = [
+    ["concentracionProducto", "Un producto pesa más de", "% de tu cartera", "Marca en ámbar los productos que pesan más que esto (por defecto 15)."],
+    ["concentracionValor", "Un valor dentro de tus fondos pesa más de", "% de tu cartera", "Una empresa que repiten varios de tus fondos, sumada (por defecto 5)."],
+    ["desviacionAsignacion", "Tu reparto se desvía más de", "puntos de tu objetivo", "Avisa cuando algún grupo se aleja de lo que fijaste en Planificación (por defecto 5)."],
+    ["ltvAtencion", "Préstamo: atención desde el", "% de tu límite", "Cuánto del límite de tu entidad has usado (por defecto 75)."],
+    ["ltvAlto", "Préstamo: riesgo alto desde el", "% de tu límite", "Tiene que ser mayor que el de atención (por defecto 90)."],
+  ];
+  function vistaAlertas() {
+    const u = Object.assign({ concentracionProducto: 15, concentracionValor: 5, desviacionAsignacion: 5, ltvAtencion: 75, ltvAlto: 90 },
+      (E.cfg.alertas && E.cfg.alertas.umbrales) || {});
+    const propio = E.modo === "propio";
+    return `<section class="tarjeta"><header><h2>Cuándo avisarte</h2>
+        <span class="subt">Tú decides a partir de cuánto salta cada aviso. Un campo vacío vuelve al valor de siempre.</span></header>
+      <div class="tablaEnv"><table class="dt"><tbody>${UMBRALES_ED.map(([k, et, un, ay]) => `<tr>
+        <td style="text-align:left"><label for="umb_${k}">${et}</label><div class="ayuda">${ay}</div></td>
+        <td><input id="umb_${k}" data-umbral="${k}" inputmode="decimal" value="${String(u[k]).replace(".", ",")}" ${propio ? "" : "disabled"} style="width:5em"> ${un}</td></tr>`).join("")}</tbody></table></div>
+      <div class="imAcc"><span class="subt" id="umbMsg" role="status">${propio ? "" : "Disponible cuando empieces tu propia cartera."}</span><span class="sp"></span>
+        <button class="btn prim" data-acc="guardarAlertas" ${propio ? "" : "disabled"}>Guardar avisos</button></div></section>`;
+  }
+  async function guardarAlertas() {
+    const msg = $("#umbMsg"), umbrales = {};
+    document.querySelectorAll("[data-umbral]").forEach(i => { umbrales[i.dataset.umbral] = i.value.trim() === "" ? null : leeNum(i.value); });
+    try {
+      await guarda("alertas", { umbrales });
+      recuerda.guarda("patrimonio.tab", "datos");
+      location.reload();
+    } catch (x) { msg.textContent = x.message; }
+  }
+
   function vistaCopias() {
     if (COP.lista === null) {
       api("GET", "api/copias").then(j => { COP.lista = j.copias; if (E.vista === "copias") pinta(); });
@@ -976,6 +1006,7 @@
     imCancelar() { IMP.informe = null; IMP.token = null; pinta(); },
     imConfirmar,
     subirCopia,
+    guardarAlertas,
     recuperarCopia,
     exportarWeb() { location.href = "api/exportar-web?ocultar=" + ($("#webOcultar").checked ? "1" : "0"); },
     verPanelDatos() { recuerda.guarda("patrimonio.tab", "patrimonio"); location.reload(); },

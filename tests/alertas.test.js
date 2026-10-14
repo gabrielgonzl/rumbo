@@ -109,3 +109,14 @@ assert.deepEqual(A.zonasLtv(70).map(z => z.en), [52.5, 63]);
 assert.deepEqual(A.zonasLtv(null).map(z => z.en), [70, 85]);
 assert.deepEqual(A.zonasLtv(undefined).map(z => z.cl), ["warn", "danger"]);
 console.log("alertas.test.js (zonas): todo en orden");
+
+// Q9: desvío de la asignación configurable.
+assert.deepEqual(tipos(run({ desvioMax: 6.2, umbralDesvio: 5, desvioGrupo: "Renta variable" })), ["desvio"]);
+assert.deepEqual(tipos(run({ desvioMax: 4.9, umbralDesvio: 5 })), []);
+assert.deepEqual(tipos(run({ desvioMax: 12, umbralDesvio: 5, estatico: true })), []);   // en la web exportada no hay nada que hacer
+assert.deepEqual(tipos(run({ desvioMax: null, umbralDesvio: 5 })), []);
+assert.equal(run({ desvioMax: 6.2, umbralDesvio: 5 }).alertas[0].ir, "plan");
+// Q9: zonas del medidor con umbrales propios (50 % y 60 % del límite del 70 %); incoherentes -> por defecto.
+assert.deepEqual(A.zonasLtv(70, { ltvAtencion: 50, ltvAlto: 60 }).map(z => z.en), [35, 42]);
+assert.deepEqual(A.zonasLtv(70, { ltvAtencion: 90, ltvAlto: 80 }).map(z => z.en), [52.5, 63]);
+console.log("alertas.test.js (umbrales): todo en orden");
