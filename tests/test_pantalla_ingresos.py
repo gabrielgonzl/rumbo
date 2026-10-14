@@ -29,6 +29,11 @@ class PantallaIngresos(unittest.TestCase):
         self.assertIn("window.ESTATICO", cuerpo)
         self.assertIn("OCULTAR_IMPORTES", cuerpo)
 
+    def test_la_web_exportada_con_importes_tampoco_lleva_ingresos(self):
+        datos = {"total": {"patrimonio": 1, "serie": [], "hitos": []}, "productos": [],
+                 "ingresos": {"ultimosDoce": 99.5, "porMes": [], "porAno": [], "productos": [], "total": {}}}
+        self.assertNotIn("99.5", exportar.pagina(WEB, datos))
+
     def test_la_web_sin_importes_no_lleva_ingresos(self):
         datos = {"total": {"patrimonio": 1, "serie": [], "hitos": []}, "productos": [],
                  "ingresos": {"ultimosDoce": 99.5, "porMes": [], "porAno": [], "productos": [], "total": {}}}

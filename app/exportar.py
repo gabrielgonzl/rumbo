@@ -94,6 +94,7 @@ def pagina(web, datos, ocultar=False, titulo="Mi patrimonio"):
     if ocultar:
         datos = sin_importes(datos)
     datos = dict(datos, modo="estatico", avisos=[])
+    datos.pop("ingresos", None)      # la web exportada no tiene pantalla de ingresos: no viaja ni con importes
     html = lee("index.html")
 
     # Los estilos van dentro del archivo: la web exportada es un único .html sin peticiones externas.

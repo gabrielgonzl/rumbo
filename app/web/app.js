@@ -987,7 +987,7 @@
       ${filtrada ? `<p class="subt" style="margin:0 0 10px">Vista filtrada: esta zona (avisos, patrimonio y rentabilidad reciente) es de toda la cartera.</p>` : ""}
       ${al.length ? `<div class="alertas">${al.map(a => `<div class="alerta ${a.cl}" role="${a.cl === "danger" ? "alert" : "status"}">
           ${a.cl === "info" ? ICO_INFO : ICO_ALERTA}<div class="txt">${textoAlerta(a)}</div>
-          <div class="acciones">${a.ir ? `<button class="btn" data-ir="${a.ir}">${a.irEt || "Ver riesgo"}</button>` : ""}
+          <div class="acciones">${a.ir ? `<button class="btn" data-ir="${a.ir}">${esc(a.irEt || "Ver riesgo")}</button>` : ""}
             ${a.accion === "actualizar" ? `<button class="btn" data-actualizar>Actualizar</button>` : ""}
             ${!a.descartable ? "" : `<button class="btn suave" data-cierra="${esc(a.clave)}" aria-label="Descartar este aviso" title="Descartar: volverá a salir si la situación cambia">✕</button>`}</div>
         </div>`).join("")}</div>` : ""}

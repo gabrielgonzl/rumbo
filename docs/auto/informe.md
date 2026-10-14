@@ -4,6 +4,14 @@
 
 ## Ronda 4 (sesión en la nube)
 
+**Revisión del equipo (sobre todo lo de esta ronda):** seguridad-privacidad APRUEBA CON RESERVAS; verificador APRUEBA
+CON RESERVAS (5 escenarios × todas las pestañas × 390/1280 × claro/oscuro, y la web exportada con y sin importes:
+0 desbordes, 0 errores, 0 violaciones de CSP). Reservas de seguridad resueltas: valor de umbral sin escapar en el
+formulario (`editor.js`), `NaN` aceptado por `numero()`/`guarda_alertas` (ahora se rechaza todo no finito), `irEt` sin
+`esc()`, y `ingresos` ya no viaja en la web exportada ni con importes. Reserva del verificador que sigue abierta: 7
+atributos `style` en línea nuevos (la CSP los admite; migrarlos a clases es una mejora). No comprobado por el
+verificador: cotejo cifra a cifra con `/datos.js`, solapes de texto, 1920 px, rama con precios actualizados.
+
 - **V3 (parte accesibilidad) hecha:** todo SVG de `graficos.js` lleva `role="img"` y `aria-label` con título y
   resumen (rango de fechas, series, último valor; en reparto, solo porcentajes). Funciones puras con test
   (`tests/graficos.test.js`) y comprobación estática (`tests/test_graficos_accesibles.py`).
@@ -57,7 +65,7 @@
   peor gráfico 4,23:1) y comprobación del texto renderizado en las 9 pestañas (`docs/auto/contraste_vivo.js`).
   Un fallo real corregido: filtros apagados con opacidad 0,42 (1,85:1). Informe en `docs/auto/contraste.md`.
   No se regeneraron capturas de referencia a 390/768/1920.
-- Estado: 147 tests de Python y 5 archivos de Node en verde.
+- Estado: 149 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 

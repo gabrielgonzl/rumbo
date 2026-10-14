@@ -877,7 +877,7 @@
         <span class="subt">Tú decides a partir de cuánto salta cada aviso. Un campo vacío vuelve al valor de siempre.</span></header>
       <div class="tablaEnv"><table class="dt"><tbody>${UMBRALES_ED.map(([k, et, un, ay]) => `<tr>
         <td style="text-align:left"><label for="umb_${k}">${et}</label><div class="ayuda">${ay}</div></td>
-        <td><input id="umb_${k}" data-umbral="${k}" inputmode="decimal" value="${String(u[k]).replace(".", ",")}" ${propio ? "" : "disabled"} style="width:5em"> ${un}</td></tr>`).join("")}</tbody></table></div>
+        <td><input id="umb_${k}" data-umbral="${k}" inputmode="decimal" value="${esc(String(u[k]).replace(".", ","))}" ${propio ? "" : "disabled"} style="width:5em"> ${un}</td></tr>`).join("")}</tbody></table></div>
       <div class="imAcc"><span class="subt" id="umbMsg" role="status">${propio ? "" : "Disponible cuando empieces tu propia cartera."}</span><span class="sp"></span>
         <button class="btn prim" data-acc="guardarAlertas" ${propio ? "" : "disabled"}>Guardar avisos</button></div></section>`;
   }

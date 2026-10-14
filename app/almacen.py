@@ -8,6 +8,7 @@ que tiene sentido y, antes de cada cambio, se guarda una copia automática.
 
 import datetime as dt
 import json
+import math
 import os
 import re
 import unicodedata
@@ -116,6 +117,9 @@ def numero(valor, etiqueta, errores, obligatorio=True, minimo=None, mayor_que=No
             errores.append(f"{etiqueta.capitalize()} no es un número: «{valor}».")
             return None
         x = num_es(t)
+    if not math.isfinite(x):                       # NaN pasa todas las comparaciones: se rechaza aquí
+        errores.append(f"{etiqueta.capitalize()} no es un número válido.")
+        return None
     if minimo is not None and x < minimo:
         errores.append(f"{etiqueta.capitalize()} no puede ser menor que {minimo:g}.")
     if mayor_que is not None and x <= mayor_que:

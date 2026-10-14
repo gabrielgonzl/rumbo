@@ -49,6 +49,11 @@ class Validacion(unittest.TestCase):
         r = almacen.guarda_alertas(cfg, {"umbrales": {"concentracionProducto": ""}})
         self.assertEqual(r["umbrales"]["concentracionProducto"], 15)             # vacío = por defecto
 
+    def test_nan_e_infinito_se_rechazan(self):
+        for malo in (float("nan"), float("inf"), float("-inf")):
+            with self.assertRaises(almacen.ErrorValidacion, msg=str(malo)):
+                almacen.guarda_alertas({}, {"umbrales": {"ltvAlto": malo}})
+
     def test_rechaza_lo_absurdo(self):
         for malo in ({"concentracionProducto": 0}, {"concentracionProducto": 150}, {"desviacionAsignacion": "x"},
                      {"ltvAtencion": 95, "ltvAlto": 90}, {"ltvAlto": 70}):
@@ -106,8 +111,11 @@ class Api(unittest.TestCase):
 class Interfaz(unittest.TestCase):
     def test_editor_tiene_la_vista_y_la_accion(self):
         web = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "web")
-        ed = open(os.path.join(web, "editor.js"), encoding="utf-8").read()
-        app = open(os.path.join(web, "app.js"), encoding="utf-8").read()
+        with open(os.path.join(web, "editor.js"), encoding="utf-8") as f:
+            ed = f.read()
+        with open(os.path.join(web, "app.js"), encoding="utf-8") as f:
+            app = f.read()
+        self.assertIn('value="${esc(String(u[k])', ed)          # el valor guardado se escapa
         self.assertIn('["alertas", "Alertas"]', ed)
         self.assertIn("guardarAlertas", ed)
         for k in umbrales.POR_DEFECTO:
