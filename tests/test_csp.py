@@ -47,7 +47,8 @@ class Csp(unittest.TestCase):
 
     def test_no_quedan_estilos_en_linea_en_la_interfaz(self):
         """Los atributos style (y setAttribute("style")) los bloquea la CSP: se usa data-st + estilos.js."""
-        for nombre in ("index.html", "app.js", "editor.js", "graficos.js", "alertas.js", "cargador.js"):
+        import glob
+        for nombre in ["index.html"] + sorted(os.path.basename(f) for f in glob.glob(os.path.join(WEB, "*.js"))):
             with open(os.path.join(WEB, nombre), encoding="utf-8") as f:
                 texto = f.read()
             self.assertNotRegex(texto, r"""[\s"']style\s*=\s*["']""", nombre)
@@ -55,6 +56,28 @@ class Csp(unittest.TestCase):
         with open(os.path.join(WEB, "index.html"), encoding="utf-8") as f:
             html = f.read()
         self.assertLess(html.index('src="estilos.js"'), html.index('src="cargador.js"'))
+
+    def test_la_web_exportada_con_saltos_de_linea_crlf(self):
+        """El exportador no depende de un \\n exacto tras la etiqueta de estilos.js."""
+        import tempfile, shutil
+        carpeta = tempfile.mkdtemp(prefix="rumbo_crlf_")
+        destino = os.path.join(carpeta, "web")
+        shutil.copytree(WEB, destino)
+        ruta = os.path.join(destino, "index.html")
+        with open(ruta, encoding="utf-8", newline="") as f:
+            html = f.read().replace("\r\n", "\n").replace("\n", "\r\n")
+        with open(ruta, "w", encoding="utf-8", newline="") as f:
+            f.write(html)
+        salida = exportar.pagina(destino, {"total": {"patrimonio": 0, "serie": [], "hitos": []}, "productos": []})
+        self.assertNotIn('src="estilos.js"', salida)
+        self.assertIn('n.hasAttribute("data-st")', salida)
+
+    def test_los_nombres_de_los_tooltips_se_escapan(self):
+        with open(os.path.join(WEB, "graficos.js"), encoding="utf-8") as f:
+            js = f.read()
+        self.assertNotIn("</i>${s.nombre}", js)
+        self.assertNotIn("</i>${o.s.nombre}", js)
+        self.assertIn("escH(s.nombre)", js)
 
     def test_la_web_exportada_sigue_llevando_los_scripts(self):
         html = exportar.pagina(WEB, {"total": {"patrimonio": 0, "serie": [], "hitos": []}, "productos": []})

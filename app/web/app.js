@@ -1384,7 +1384,7 @@
       `<thead><tr>${cols.map(c => `<th class="orden" data-c="${c[0]}">${c[1]}${o.col === c[0] ? (o.desc ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
        <tbody>${f.map(r => `<tr>
         <td>${G.fmtFecha(r.fecha)}</td>
-        <td><i class="pt" data-st="background:${r.color}"></i>${r.producto}</td>
+        <td><i class="pt" data-st="background:${r.color}"></i>${esc(r.producto)}</td>
         <td>${G.fmtEur(r.importe)}</td>
         <td>${r.valor != null ? G.fmtEur(r.valor) : "—"}</td>
         <td class="${r.pl >= 0 ? "pos" : "neg"}">${r.pl != null ? G.fmtEurSigno(r.pl) : "—"}</td>
@@ -2063,7 +2063,7 @@
     console.error(e);
     document.querySelector(".env").insertAdjacentHTML("afterbegin",
       '<div class="av" data-st="margin:20px 0"><span>⚠</span><span><b>Algo ha fallado al pintar el panel.</b> ' +
-      String(e && e.message || e) + '<br>Cierra la app y vuelve a abrirla con «Iniciar»; si sigue igual, pulsa F12 y mira la consola del navegador.</span></div>');
+      esc(String(e && e.message || e)) + '<br>Cierra la app y vuelve a abrirla con «Iniciar»; si sigue igual, pulsa F12 y mira la consola del navegador.</span></div>');
   }
   // ?ir=seccionComparar pone esa sección la primera de su pestaña (para capturas y enlaces).
   const irA_ = qs.get("ir") && document.getElementById(qs.get("ir"));

@@ -124,5 +124,54 @@ class Interfaz(unittest.TestCase):
         self.assertIn("umbralesAl().concentracionValor", app)
 
 
+class CopiasAjenas(unittest.TestCase):
+    """Reservas de la revisión: una copia de seguridad ajena no puede colar HTML ni un `slot` que rompa una plantilla."""
+
+    def test_sanea_copia_quita_marcas_y_fuerza_el_slot(self):
+        cfg = {"productos": [{"id": "a", "nombre": "<img src=x onerror=alert(1)>Fondo", "corto": "A>B",
+                              "slot": '1" data-st="position:fixed'}, {"id": "b", "slot": 99}, {"id": "c", "slot": "7"}],
+               "movimientos": [{"id": "m1", "nota": "<b>hola</b>"}], "valoraciones": [], "otro": {"x": ["<i>"]}}
+        limpia = almacen.sanea_copia(cfg)
+        self.assertNotRegex(json.dumps(limpia, ensure_ascii=False), r"[<>]")
+        self.assertEqual([p["slot"] for p in limpia["productos"]], [1, 1, 7])
+        self.assertEqual(limpia["movimientos"][0]["nota"], "bhola/b")           # el texto queda, sin etiquetas
+        self.assertEqual(cfg["productos"][0]["slot"], '1" data-st="position:fixed')   # no muta la entrada
+
+    def test_valida_copia_sanea(self):
+        cfg = servidor.valida_copia({"productos": [{"id": "a", "nombre": "<script>", "slot": "x"}],
+                                     "movimientos": [], "valoraciones": []})
+        self.assertEqual(cfg["productos"][0]["nombre"], "script")
+        self.assertEqual(cfg["productos"][0]["slot"], 1)
+
+
+class Identificadores(unittest.TestCase):
+    def test_siguiente_id_con_prefijo_de_dos_letras(self):
+        """Antes: int(id[1:]) rompía con «pg1» y la segunda pignoración daba error 500."""
+        self.assertEqual(almacen.siguiente_id([], "pg"), "pg1")
+        self.assertEqual(almacen.siguiente_id([{"id": "pg1"}], "pg"), "pg2")
+        self.assertEqual(almacen.siguiente_id([{"id": "pg3"}, {"id": "pg10"}, {"id": "x"}], "pg"), "pg11")
+        self.assertEqual(almacen.siguiente_id([{"id": "m7"}], "m"), "m8")
+
+    def test_dos_pignoraciones_seguidas_por_la_api(self):
+        c = servidor.app.test_client()
+        servidor.DATOS = _TMP
+        for n in os.listdir(_TMP):
+            p = os.path.join(_TMP, n)
+            if os.path.isfile(p):
+                os.remove(p)
+        cfg = json.loads(json.dumps(almacen.CARTERA_VACIA))
+        cfg["productos"] = [{"id": "fondo_a", "nombre": "Fondo A", "corto": "Fondo A", "tipo": "fondo",
+                             "fuente": "manual", "moneda": "EUR", "slot": 1}]
+        cfg["valoraciones"] = [{"id": "v1", "fecha": "2026-09-01", "producto": "fondo_a", "valor": 3000.0,
+                                "aportado": 2500.0}]
+        almacen.guarda(os.path.join(_TMP, "cartera.json"), cfg)
+        alta = {"nombre": "Préstamo", "entidad": "X", "activos": ["fondo_a"], "principal": "1.000,00",
+                "fecha": "2026-09-23", "interes": "5", "cuotas": 12, "primerPago": "2026-10-23"}
+        r1 = c.post("/api/pignoraciones", json=alta, headers=H)
+        r2 = c.post("/api/pignoraciones", json=dict(alta, nombre="Otro", activos=[]), headers=H)
+        self.assertEqual(r1.status_code, 200, r1.get_data(as_text=True))
+        self.assertNotEqual(r2.status_code, 500, r2.get_data(as_text=True))     # 200 o un error de validación, nunca 500
+
+
 if __name__ == "__main__":
     unittest.main()

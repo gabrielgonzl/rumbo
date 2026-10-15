@@ -150,8 +150,30 @@ def slug(texto, existentes):
 
 
 def siguiente_id(lista, prefijo):
-    nums = [int(x["id"][1:]) for x in lista if re.fullmatch(prefijo + r"\d+", str(x.get("id", "")))]
+    nums = [int(x["id"][len(prefijo):]) for x in lista if re.fullmatch(prefijo + r"\d+", str(x.get("id", "")))]
     return f"{prefijo}{max(nums, default=0) + 1}"
+
+
+def sanea_copia(cfg):
+    """Limpia una cartera que llega de fuera (copia subida o recuperada): sin < ni > en ningún texto y con
+    `slot` siempre entero 1-12. Una copia ajena no pasa por `texto()` y sus nombres acaban en HTML."""
+    def limpia(v):
+        if isinstance(v, str):
+            return v.replace("<", "").replace(">", "")
+        if isinstance(v, list):
+            return [limpia(x) for x in v]
+        if isinstance(v, dict):
+            return {k: limpia(x) for k, x in v.items()}
+        return v
+    cfg = limpia(cfg)
+    for p in cfg.get("productos", []):
+        if isinstance(p, dict) and "slot" in p:
+            try:
+                n = int(p["slot"])
+            except (TypeError, ValueError):
+                n = 1
+            p["slot"] = n if 1 <= n <= 12 else 1
+    return cfg
 
 
 def producto(cfg, pid):

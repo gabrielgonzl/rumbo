@@ -4,6 +4,28 @@
 
 ## Ronda 4 (sesión en la nube)
 
+**Revisión de los dos últimos cambios (CSP sin estilos en línea y tablas alternativas):** seguridad-privacidad y
+verificador APRUEBAN CON RESERVAS (0 regresiones: 9 pestañas × 1280/390 × claro/oscuro, web exportada con y sin
+importes, cero con signo probado con 2 millones de valores, 24 filas máximo en tablas con 1111 fechas, teclado en
+`<summary>`). Reservas resueltas en esta tanda:
+- **R1 (seguridad):** una copia de seguridad ajena podía meter HTML/`slot` que acabara en una plantilla con `data-st`.
+  Ahora `almacen.sanea_copia` (sin `<` ni `>` en ningún texto, `slot` entero 1-12) se aplica en `valida_copia`; los
+  tooltips escapan nombres (`escH`); `app.js` escapa `r.producto` y el mensaje de error; el editor usa `slotDe(p)`; y
+  `estilos.js` solo aplica una lista de propiedades permitidas (sin `position`, `inset`, `z-index`, `transform`…) y
+  descarta `url()`, `@`, `\`, `expression` (`tests/estilos.test.js`). Comprobado en la app real subiendo una copia
+  maliciosa: queda saneada. 27 capturas idénticas píxel a píxel con el commit anterior.
+- **R2/R3/R4:** el test de «sin `style=`» recorre todos los `*.js`; el exportador ya no depende del salto de línea
+  exacto (test con CRLF); el mensaje de error de `app.js` pasa por `esc()`.
+- **Defecto previo (verificador):** `barrasApiladas` usaba `fV` sin declararla → `ReferenceError` al pasar el ratón por
+  «Aportaciones por mes». Corregido y comprobado con datos reales (tooltip correcto, sin errores).
+- **Defecto previo (verificador):** crear una segunda pignoración daba 500 (`siguiente_id` hacía `int(id[1:])` con el
+  prefijo `pg`). Corregido (`id[len(prefijo):]`) con tests; en la app real salen `pg1` y `pg2`.
+- **Accesibilidad:** el contenedor con scroll de la tabla alternativa es enfocable por teclado (`tabindex`, `role=region`).
+- **Sin cambio (decisión de diseño):** el gráfico principal enseña activos (no resta la deuda) y lo dice su nota; la
+  tabla alternativa hereda ese total. Las series con valor 0 salen en la tabla y no en el tooltip.
+- **No comprobado por el verificador:** gráficos que necesitan precios en línea (comparador, ingresos) renderizados,
+  Firefox/Safari, Docker, 1920 px, descarga de copias e importación real.
+
 **Tabla alternativa de datos (cierra V3):** cada gráfico (salvo el minigráfico decorativo) lleva bajo él «Ver los datos
 en tabla» (`<details>` cerrado), con los mismos valores y formatos; las series largas se reparten en 24 filas como mucho
 (primera y última siempre) y lo dice una nota. Constructores puros con test (`tSerie`, `tReparto`, `tPares`,
@@ -80,7 +102,7 @@ verificador: cotejo cifra a cifra con `/datos.js`, solapes de texto, 1920 px, ra
   peor gráfico 4,23:1) y comprobación del texto renderizado en las 9 pestañas (`docs/auto/contraste_vivo.js`).
   Un fallo real corregido: filtros apagados con opacidad 0,42 (1,85:1). Informe en `docs/auto/contraste.md`.
   No se regeneraron capturas de referencia a 390/768/1920.
-- Estado: 151 tests de Python y 5 archivos de Node en verde.
+- Estado: 157 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 

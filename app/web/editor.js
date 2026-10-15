@@ -23,6 +23,8 @@
     if (t.includes(",") || /^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "").replace(",", ".");
     return parseFloat(t);
   };
+  // El color de un producto es un entero 1-12: nunca se pega tal cual en una plantilla.
+  const slotDe = p => { const n = parseInt(p && p.slot, 10); return n >= 1 && n <= 12 ? n : 1; };
   const nombre = p => p ? (p.corto || p.nombre) : "¿?";
   const prod = id => E.cfg.productos.find(p => p.id === id);
   const soloSaldo = p => SOLO_SALDO.includes(p.tipo);
@@ -335,7 +337,7 @@
       const n = soloSaldo(p) || manual(p)
         ? E.cfg.valoraciones.filter(v => v.producto === p.id).length + " valores"
         : E.cfg.movimientos.filter(m => m.producto === p.id).length + " movs.";
-      return `<tr><td><i class="pt" data-st="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}
+      return `<tr><td><i class="pt" data-st="background:var(--s${slotDe(p)})"></i>${esc(nombre(p))}
           ${p.identificador ? `<small class="idp">${esc(p.identificador)}</small>` : ""}</td>
         <td>${esc(E.tipos[p.tipo] || p.tipo)}</td><td>${precioDe(p)}</td>
         <td>${esc(E.fuentes[p.fuente] || "")}${p.codigo ? ` <small>${esc(p.codigo)}</small>` : ""}</td>
@@ -354,7 +356,7 @@
 
   function siguienteColor() {
     const usos = Array(13).fill(0);
-    E.cfg.productos.forEach(p => { usos[p.slot || 1]++; });
+    E.cfg.productos.forEach(p => { usos[slotDe(p)]++; });
     let mejor = 1;
     for (let i = 1; i <= 12; i++) if (usos[i] < usos[mejor]) mejor = i;
     return mejor;
@@ -519,7 +521,7 @@
     const filas = movs.map(m => {
       const p = prod(m.producto);
       const precio = m.unidades ? (m.importe - (m.comision || 0)) / m.unidades : null;
-      return `<tr><td>${fecha(m.fecha)}</td><td data-st="text-align:left">${p ? `<i class="pt" data-st="background:var(--s${p.slot || 1})"></i>` : ""}${esc(nombre(p))}</td>
+      return `<tr><td>${fecha(m.fecha)}</td><td data-st="text-align:left">${p ? `<i class="pt" data-st="background:var(--s${slotDe(p)})"></i>` : ""}${esc(nombre(p))}</td>
         <td data-st="text-align:left">${esc(E.tiposMov[m.tipo] || m.tipo)}</td>
         <td>${m.unidades ? num(m.unidades) : "—"}</td>
         <td class="${m.tipo === "compra" || m.tipo === "comision" ? "" : "pos"}">${eur(m.importe)}</td>
@@ -616,7 +618,7 @@
         ${conAportado ? `<td>${v.aportado != null ? eur(v.aportado) : "—"}</td>` : ""}
         <td class="acc"><button data-acc="editarValor" data-id="${esc(v.id)}">Editar</button>
           <button data-acc="borrarValor" data-id="${esc(v.id)}">Borrar</button></td></tr>`).join("");
-      return `<section class="tarjeta saldo"><header><h2><i class="pt" data-st="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}</h2>
+      return `<section class="tarjeta saldo"><header><h2><i class="pt" data-st="background:var(--s${slotDe(p)})"></i>${esc(nombre(p))}</h2>
           <span class="subt">${esc(E.tipos[p.tipo] || "")}${p.entidad ? " · " + esc(p.entidad) : ""}</span><span class="sp"></span>
           <button class="btn" data-acc="nuevoValor" data-id="${esc(p.id)}">+ Anotar</button></header>
         ${filas ? `<div class="tablaEnv"><table class="dt"><thead><tr><th>Fecha</th><th>${etiquetaValor(p)}</th>
@@ -662,7 +664,7 @@
       <div class="rejilla">${campo("Fecha", `<input type="date" name="fecha" max="${hoy()}" value="${hoy()}">`)}</div>
       <div class="listaValores">${lista.map(p => {
         const u = ultimo(p.id);
-        return `<label class="filaValor"><span><span class="nm"><i class="pt" data-st="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}</span>
+        return `<label class="filaValor"><span><span class="nm"><i class="pt" data-st="background:var(--s${slotDe(p)})"></i>${esc(nombre(p))}</span>
           <small>${u ? `Último: ${eur(u.valor)} el ${fecha(u.fecha)}` : "Sin valores todavía"}</small></span>
           <span class="conSufijo"><input name="v_${esc(p.id)}" inputmode="decimal" placeholder="${u ? decimal(u.valor) : "0,00"}"><span>€</span></span></label>`;
       }).join("")}</div>
