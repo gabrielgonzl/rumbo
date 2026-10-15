@@ -4,12 +4,19 @@
 
 ## Ronda 4 (sesión en la nube)
 
+**Endurecimiento de la CSP (después de la revisión):** `style-src 'self'`, sin `'unsafe-inline'`. Los atributos
+`style="…"` (≈100 en HTML y plantillas JS) pasan a `data-st="…"`; `app/web/estilos.js` los aplica con `el.style.cssText`
+(permitido por la CSP) a los nodos existentes y, con un `MutationObserver`, a los que entren después (89 puntos con
+`innerHTML`). La web exportada lleva `estilos.js` dentro. Comprobación: 27 capturas (9 pestañas × 1280 oscuro/claro y
+390 claro) idénticas píxel a píxel entre el commit anterior y este; tooltip, vistas del editor y modal con estilo;
+0 `securitypolicyviolation`, 0 `data-st` sin aplicar. Test que impide volver a escribir `style=` en la interfaz.
+
 **Revisión del equipo (sobre todo lo de esta ronda):** seguridad-privacidad APRUEBA CON RESERVAS; verificador APRUEBA
 CON RESERVAS (5 escenarios × todas las pestañas × 390/1280 × claro/oscuro, y la web exportada con y sin importes:
 0 desbordes, 0 errores, 0 violaciones de CSP). Reservas de seguridad resueltas: valor de umbral sin escapar en el
 formulario (`editor.js`), `NaN` aceptado por `numero()`/`guarda_alertas` (ahora se rechaza todo no finito), `irEt` sin
-`esc()`, y `ingresos` ya no viaja en la web exportada ni con importes. Reserva del verificador que sigue abierta: 7
-atributos `style` en línea nuevos (la CSP los admite; migrarlos a clases es una mejora). No comprobado por el
+`esc()`, y `ingresos` ya no viaja en la web exportada ni con importes. Reserva del verificador sobre los 7
+atributos `style` nuevos: resuelta con `estilos.js` (ver arriba). No comprobado por el
 verificador: cotejo cifra a cifra con `/datos.js`, solapes de texto, 1920 px, rama con precios actualizados.
 
 - **V3 (parte accesibilidad) hecha:** todo SVG de `graficos.js` lleva `role="img"` y `aria-label` con título y
@@ -33,7 +40,7 @@ verificador: cotejo cifra a cifra con `/datos.js`, solapes de texto, 1920 px, ra
   form-action 'self'; frame-ancestors 'none'`. El cargador de scripts pasó de `<script>` en línea a `cargador.js`; el
   exportador lo sustituye igual. Comprobado en la app real: 9 pestañas, 0 errores y 0 `securitypolicyviolation`.
   Matiz: `style-src` conserva `'unsafe-inline'` porque la interfaz genera atributos `style`; no ejecutan código, pero
-  quitarlo exigiría migrarlos a clases (queda como mejora). La web exportada (un solo `.html` abierto como archivo)
+  (ya migrado a `data-st`, ver el comienzo de esta ronda). La web exportada (un solo `.html` abierto como archivo)
   no puede llevar cabeceras y no cambia.
 - **Q10 hecho (medido):** cartera sintética de 8 productos × 721 días: `datos.js` = 158 KB (productos 79 KB, resumen mensual
   26 KB); descarga 24 ms; carga hasta pintado 185–396 ms; pestañas 31–46 ms. El tamaño de los datos no es un cuello de

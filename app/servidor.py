@@ -177,8 +177,8 @@ def controla_origen():
 
 
 # CSP estricta: solo código propio (sin scripts en línea ni eval), sin conexiones ni recursos de terceros.
-# Los estilos en línea (atributos style generados por la interfaz) se permiten: no ejecutan código.
-CSP = ("default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+# Sin estilos en línea: la interfaz escribe data-st="…" y estilos.js lo aplica con `el.style` (permitido).
+CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
        "connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 
 

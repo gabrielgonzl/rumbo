@@ -57,7 +57,7 @@
     <div class="hCifra" id="heroCifra">—</div>
     <div class="hSub" id="heroSub"></div>
     <div class="prog" id="progEnv" hidden>
-      <div class="progBarra"><div class="progRelleno" id="progRelleno" style="width:0"></div></div>
+      <div class="progBarra"><div class="progRelleno" id="progRelleno" data-st="width:0"></div></div>
       <div class="progPie"><span id="progIzq"></span><span id="progDer"></span></div>
     </div>
   </section>
@@ -87,7 +87,7 @@
         <div class="segm" id="segDist"></div>
       </header>
       <div class="envGraf" id="grafDonut"></div>
-      <table class="leyenda" id="leyendaDist" style="margin-top:14px"></table>
+      <table class="leyenda" id="leyendaDist" data-st="margin-top:14px"></table>
     </section>
     <section class="tarjeta">
       <header><h2>Aportaciones por mes</h2><span class="subt" id="notaAport"></span></header>
@@ -95,7 +95,7 @@
     </section>
   </div>
 
-  <section class="tarjeta" style="margin-top:16px">
+  <section class="tarjeta" data-st="margin-top:16px">
     <header><h2>Hitos</h2><span class="subt">La primera vez que el patrimonio cruzó cada cifra</span></header>
     <div class="hitos" id="hitos"></div>
   </section>
@@ -104,7 +104,7 @@
 
 <!-- ==================================================== EL MES -->
 <div class="panel" id="tab-mes" role="tabpanel" aria-labelledby="t-mes" hidden>
-  <section class="hero" style="padding-bottom:0">
+  <section class="hero" data-st="padding-bottom:0">
     <div class="mesBarra">
       <button class="btn" id="mesPrev" title="Mes anterior">‹</button>
       <select id="mesSel" aria-label="Elegir mes"></select>
@@ -135,7 +135,7 @@
 
 <!-- ==================================================== POSICIONES -->
 <div class="panel" id="tab-fondos" role="tabpanel" aria-labelledby="t-fondos" hidden>
-  <section class="tarjeta" id="posiciones" style="margin-top:24px">
+  <section class="tarjeta" id="posiciones" data-st="margin-top:24px">
     <header>
       <h2>Posiciones</h2>
       <span class="subt" id="posNota"></span>
@@ -146,7 +146,7 @@
     <div class="tablaEnv"><table class="dt tabPos" id="tablaPos"></table></div>
   </section>
 
-  <section class="tarjeta" id="seccionTabla" style="margin-top:16px">
+  <section class="tarjeta" id="seccionTabla" data-st="margin-top:16px">
     <header>
       <h2>Todas las aportaciones</h2>
       <span class="subt" id="notaTabla"></span>
@@ -168,7 +168,7 @@
 
 <!-- ==================================================== RENDIMIENTO -->
 <div class="panel" id="tab-rendimiento" role="tabpanel" aria-labelledby="t-rendimiento" hidden>
-  <section class="tarjeta" style="margin-top:24px">
+  <section class="tarjeta" data-st="margin-top:24px">
     <header><h2>Rentabilidad por año natural</h2><span class="subt" id="notaAnual"></span></header>
     <div class="envGraf" id="grafAnual"></div>
     <div class="filaTabla">
@@ -186,13 +186,13 @@
     </header>
     <div class="compTitular" id="compTitular"></div>
     <div class="envGraf" id="grafComparacion"></div>
-    <p class="subt" id="compNota" style="margin:10px 0 0"></p>
+    <p class="subt" id="compNota" data-st="margin:10px 0 0"></p>
     <details class="compDetalles" id="compDetalles">
       <summary>Ver más detalles: volatilidad, Sharpe y caídas</summary>
-      <p class="subt" id="notaComparador" style="margin:12px 0 0"></p>
+      <p class="subt" id="notaComparador" data-st="margin:12px 0 0"></p>
       <div class="envGraf" id="grafComparador"></div>
-      <div class="tablaEnv" style="margin-top:16px"><table class="dt" id="tablaComparador"></table></div>
-      <p class="subt" id="notaRiesgo" style="margin:14px 0 0"></p>
+      <div class="tablaEnv" data-st="margin-top:16px"><table class="dt" id="tablaComparador"></table></div>
+      <p class="subt" id="notaRiesgo" data-st="margin:14px 0 0"></p>
     </details>
   </section>
 
@@ -204,28 +204,28 @@
 
 <!-- ==================================================== RIESGO Y DEUDA -->
 <div class="panel" id="tab-riesgo" role="tabpanel" aria-labelledby="t-riesgo" hidden>
-  <div id="riesgo" style="margin-top:24px"></div>
+  <div id="riesgo" data-st="margin-top:24px"></div>
 </div>
 
 <!-- ==================================================== FISCALIDAD -->
 <div class="panel" id="tab-fiscal" role="tabpanel" aria-labelledby="t-fiscal" hidden>
-  <div id="ingresos" style="margin-top:24px"></div>
-  <div id="fiscal" style="margin-top:24px"></div>
+  <div id="ingresos" data-st="margin-top:24px"></div>
+  <div id="fiscal" data-st="margin-top:24px"></div>
 </div>
 
 <!-- ==================================================== PLANIFICACIÓN -->
 <div class="panel" id="tab-plan" role="tabpanel" aria-labelledby="t-plan" hidden>
-  <section class="tarjeta" id="seccionMeta" style="margin-top:24px" aria-labelledby="metaTit">
+  <section class="tarjeta" id="seccionMeta" data-st="margin-top:24px" aria-labelledby="metaTit">
     <header><h2 id="metaTit">Mi meta</h2><span class="subt" id="metaSubt"></span></header>
     <div id="metaCuerpo"></div>
   </section>
 
-  <section class="tarjeta" id="seccionAsig" style="margin-top:16px" aria-labelledby="asigTit">
+  <section class="tarjeta" id="seccionAsig" data-st="margin-top:16px" aria-labelledby="asigTit">
     <header><h2 id="asigTit">Asignación objetivo</h2><span class="subt">Dónde poner tu aportación del mes, sin vender nada</span></header>
     <div id="asigCuerpo"></div>
   </section>
 
-  <section class="tarjeta" id="seccionProyeccion" style="margin-top:16px">
+  <section class="tarjeta" id="seccionProyeccion" data-st="margin-top:16px">
     <header>
       <h2>Si sigo así…</h2>
       <span class="subt" id="proySubt">Orientativa · sin impuestos ni inflación</span>
@@ -241,22 +241,22 @@
       <div class="mando"><label><span id="etqRent">Rentabilidad anual</span> <b id="vRent">7 %</b></label><input type="range" id="rRent" min="0" max="15" step="0.5" value="7"></div>
       <div class="mando"><label>Aportación mensual <b id="vApor">—</b></label><input type="range" id="rApor" min="0" max="3000" step="50" value="500"></div>
     </div>
-    <div class="tablaEnv" id="proyActivos" hidden style="margin-bottom:16px"><table class="dt" id="tablaProy"></table></div>
-    <div class="hSub" id="proyNota" style="margin-bottom:12px" hidden></div>
+    <div class="tablaEnv" id="proyActivos" hidden data-st="margin-bottom:16px"><table class="dt" id="tablaProy"></table></div>
+    <div class="hSub" id="proyNota" data-st="margin-bottom:12px" hidden></div>
     <div class="envGraf" id="grafProy"></div>
-    <div class="hSub" id="proyResumen" style="margin-top:14px"></div>
+    <div class="hSub" id="proyResumen" data-st="margin-top:14px"></div>
   </section>
 
-  <section class="tarjeta" id="seccionMC" style="margin-top:16px" aria-labelledby="mcTit">
+  <section class="tarjeta" id="seccionMC" data-st="margin-top:16px" aria-labelledby="mcTit">
     <header><h2 id="mcTit">¿Y si el mercado se mueve?</h2>
       <span class="subt">Simulación de 1.500 futuros posibles (Montecarlo) · orientativa</span></header>
     <div class="mandos">
       <div class="mando"><label>Volatilidad de la cartera <b id="vVolP">—</b></label><input type="range" id="rVolP" min="5" max="40" step="1" value="16"></div>
       <div class="mando"><label>Volatilidad de la garantía <b id="vVolG">—</b></label><input type="range" id="rVolG" min="5" max="40" step="1" value="16"></div>
     </div>
-    <div id="mcResumen" class="hSub" style="margin-bottom:12px"></div>
+    <div id="mcResumen" class="hSub" data-st="margin-bottom:12px"></div>
     <div class="envGraf" id="grafMC"></div>
-    <p class="subt" id="mcNota" style="margin-top:10px"></p>
+    <p class="subt" id="mcNota" data-st="margin-top:10px"></p>
   </section>
 
 </div>
@@ -344,6 +344,7 @@
 
 <dialog class="modal" id="modal"></dialog>
 
+<script src="estilos.js"></script>
 <script src="cargador.js"></script>
 </body>
 </html>

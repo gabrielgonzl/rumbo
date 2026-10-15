@@ -114,7 +114,7 @@
       formatoValor: v => G.fmtEur(v, 0),
       desdeCero: true,
     });
-    const ley = (c, t) => `<span class="leyItem"><i style="background:${G.css(c)}"></i>${t}</span>`;
+    const ley = (c, t) => `<span class="leyItem"><i data-st="background:${G.css(c)}"></i>${t}</span>`;
     $("#compNota").innerHTML = `<span class="leyComp">${ley("--s1", "Tu cartera")}${ley("--s2", "Con el " + r.nombre)}${ley("--tinta3", "Tu dinero puesto")}</span>
       ${r.detalle} Solo cuenta los productos con compras anotadas (no las cuentas ni lo
       que valoras a mano sin movimientos), desde el ${G.fmtFecha(C.desde)}. Sin impuestos ni comisiones de compra.
@@ -308,7 +308,7 @@
       partes.push(`<button class="pill reset" id="btnReset" title="Volver a mostrarlo todo">
         de ${G.fmtEur(mTodo.valor, 0)} totales · ver todo</button>`);
     }
-    $("#heroSub").innerHTML = partes.join('<span style="color:var(--tinta3)">·</span>');
+    $("#heroSub").innerHTML = partes.join('<span data-st="color:var(--tinta3)">·</span>');
     const reset = $("#btnReset");
     if (reset) reset.onclick = () => { estado.ocultos.clear(); pintaPatrimonio(); };
 
@@ -323,7 +323,7 @@
     $("#progEnv").hidden = false;
     $("#progRelleno").style.width = (pct * 100).toFixed(1) + "%";
     $("#progIzq").innerHTML =
-      `<b style="color:var(--tinta)">${G.fmtPct(pct, 1)}</b> del camino hacia ${G.fmtEurCorto(sig)}`;
+      `<b data-st="color:var(--tinta)">${G.fmtPct(pct, 1)}</b> del camino hacia ${G.fmtEurCorto(sig)}`;
     $("#progDer").textContent = "Faltan " + G.fmtEur(sig - m.valor, 0);
   }
 
@@ -478,7 +478,7 @@
       onClick: d => { if (d.id) { estado.fondo = d.id; irA("fondos"); } }
     });
     $("#leyendaDist").innerHTML = datos.map(d =>
-      `<tr><td><i style="background:${d.color}"></i>${esc(d.nombre)}</td>
+      `<tr><td><i data-st="background:${d.color}"></i>${esc(d.nombre)}</td>
        <td>${G.fmtEur(d.valor)}</td><td>${G.fmtPct(d.valor / total, 1)}</td></tr>`).join("");
   }
 
@@ -584,7 +584,7 @@
     }
     const editable = !window.ESTATICO;
     el.innerHTML = cuerpo + (editable ? `
-      <form class="formMeta" id="formMeta" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:16px">
+      <form class="formMeta" id="formMeta" data-st="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:16px">
         <label class="campo"><span class="et">Importe de la meta</span><input name="importe" inputmode="decimal" value="${ob ? String(ob.importe).replace(".", ",") : ""}" placeholder="100.000"></label>
         <label class="campo"><span class="et">Fecha <em>opcional</em></span><input type="date" name="fecha" value="${ob && ob.fecha ? ob.fecha : ""}"></label>
         <button class="btn prim" type="submit">Guardar meta</button><span class="subt" id="metaMsg" role="status"></span>
@@ -639,10 +639,10 @@
     if (clave !== asig.clave) {
       asig.clave = clave;
       el.innerHTML = `
-        <div class="subt" style="margin-bottom:14px"><div>El reparto <b>no vende nada</b>: la aportación del mes va a los grupos que están por debajo de su objetivo.
+        <div class="subt" data-st="margin-bottom:14px"><div>El reparto <b>no vende nada</b>: la aportación del mes va a los grupos que están por debajo de su objetivo.
           Los grupos salen del campo «Grupo para la asignación» de cada producto (Datos → Productos); si está vacío, se agrupan por tipo de activo.
           ${gruposAsignacion().every(g => !g.conGrupo) ? "<b>Aún no has puesto grupos propios:</b> ponlos para definir un reparto como «Renta variable 80 % / Liquidez 20 %»." : ""}</div></div>
-        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px">
+        <div data-st="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px">
           <label class="campo"><span class="et">Aportación de este mes</span>
             <input id="asigAport" inputmode="decimal" value="${String(asig.aport).replace(".", ",")}" ${editable ? "" : "disabled"}></label>
           <span class="subt" id="asigSuma" role="status"></span>
@@ -651,10 +651,10 @@
           <th>Objetivo %</th><th>Desviación</th><th>Poner este mes</th></tr></thead>
           <tbody>${grupos.map(g => `<tr data-g="${esc(g.id)}"><td>${esc(g.id)} <small class="subt">· ${g.n}</small></td>
             <td>${G.fmtEur(g.valor, 0)}</td><td data-p>—</td>
-            <td><input class="inObjAsig" inputmode="decimal" data-g="${esc(g.id)}" style="width:76px;text-align:right"
+            <td><input class="inObjAsig" inputmode="decimal" data-g="${esc(g.id)}" data-st="width:76px;text-align:right"
                 value="${guardados[g.id] != null ? String(guardados[g.id]).replace(".", ",") : ""}" placeholder="—" ${editable ? "" : "disabled"}></td>
             <td data-d>—</td><td data-s>—</td></tr>`).join("")}</tbody></table></div>
-        ${editable ? `<div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        ${editable ? `<div data-st="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
           <button class="btn prim" id="btnGuardaAsig">Guardar objetivos</button><span class="subt" id="asigMsg" role="status"></span></div>` : ""}`;
       asig.edit = { ...guardados };
       el.querySelectorAll(".inObjAsig").forEach(inp => inp.addEventListener("input", () => {
@@ -797,12 +797,12 @@
         `<thead><tr><th>Activo</th><th>Vale hoy</th><th>Precio hoy</th>
           <th>Precio dentro de <span id="anosTabla"></span> años</th><th>Rentab. anual</th><th>Valdría</th></tr></thead>
          <tbody>${activos.map(a => `<tr>
-          <td><i class="pt" style="background:${a.color}"></i>${esc(a.nombre)}</td>
+          <td><i class="pt" data-st="background:${a.color}"></i>${esc(a.nombre)}</td>
           <td>${G.fmtEur(a.valor, 0)}</td>
           <td>${a.precio != null ? G.fmtEur(a.precio, a.precio < 10 ? 3 : 2) : "—"}</td>
           <td><input type="number" min="0" step="any" class="inObj" data-id="${a.id}" placeholder="vacío"
                value="${proy.objetivos[a.id] ?? ""}" ${a.precio == null ? "disabled title='Sin precio de mercado'" : ""}
-               style="width:96px;text-align:right"></td>
+               data-st="width:96px;text-align:right"></td>
           <td data-r="${a.id}">—</td><td data-f="${a.id}">—</td></tr>`).join("")}</tbody>`;
       $("#tablaProy").querySelectorAll("input.inObj").forEach(inp => {
         inp.addEventListener("input", () => {
@@ -847,10 +847,10 @@
     $("#proyResumen").innerHTML =
       `Partiendo de ${G.fmtEur(m0, 0)}${filtrando() ? " (vista filtrada)" : ""},
        en <b class="fuerte">${anos} años</b> tendrías <b class="fuerte">${G.fmtEur(fin, 0)}</b>
-       <span style="color:var(--tinta3)">·</span> habrías aportado ${G.fmtEur(apFin, 0)}
-       <span style="color:var(--tinta3)">·</span> el mercado pondría
+       <span data-st="color:var(--tinta3)">·</span> habrías aportado ${G.fmtEur(apFin, 0)}
+       <span data-st="color:var(--tinta3)">·</span> el mercado pondría
        <span class="pos fuerte">${G.fmtEur(fin - m0 - apFin - amortizado, 0)}</span>` +
-      (amortizado > 0 ? ` <span style="color:var(--tinta3)">·</span> habrás amortizado
+      (amortizado > 0 ? ` <span data-st="color:var(--tinta3)">·</span> habrás amortizado
        <b class="fuerte">${G.fmtEur(amortizado, 0)}</b> del préstamo (sus cuotas salen de tu sueldo, no de la aportación)` : "");
   }
 
@@ -984,7 +984,7 @@
     }
 
     el.innerHTML = `
-      ${filtrada ? `<p class="subt" style="margin:0 0 10px">Vista filtrada: esta zona (avisos, patrimonio y rentabilidad reciente) es de toda la cartera.</p>` : ""}
+      ${filtrada ? `<p class="subt" data-st="margin:0 0 10px">Vista filtrada: esta zona (avisos, patrimonio y rentabilidad reciente) es de toda la cartera.</p>` : ""}
       ${al.length ? `<div class="alertas">${al.map(a => `<div class="alerta ${a.cl}" role="${a.cl === "danger" ? "alert" : "status"}">
           ${a.cl === "info" ? ICO_INFO : ICO_ALERTA}<div class="txt">${textoAlerta(a)}</div>
           <div class="acciones">${a.ir ? `<button class="btn" data-ir="${a.ir}">${esc(a.irEt || "Ver riesgo")}</button>` : ""}
@@ -1059,7 +1059,7 @@
       return `<th class="orden${c === "clase" ? " c-clase" : ""}" data-c="${c}" aria-sort="${act ? (o.desc ? "descending" : "ascending") : "none"}" tabindex="0">${et}${act ? (o.desc ? " ↓" : " ↑") : ""}</th>`;
     }).join("");
     const fila = f => `<tr class="fila" data-id="${esc(f.id)}" tabindex="0">
-        <td class="nom"><i class="pt" style="background:${color(f.p)}"></i>${esc(f.nombre)} ${badgeGarantia(f.p)}</td>
+        <td class="nom"><i class="pt" data-st="background:${color(f.p)}"></i>${esc(f.nombre)} ${badgeGarantia(f.p)}</td>
         <td class="c-clase">${esc(f.clase)}</td><td>${G.fmtPct(f.peso, 1)}</td><td>${G.fmtEur(f.valor)}</td>
         <td class="${f.plus == null ? "" : f.plus >= 0 ? "pos" : "neg"}">${f.plus == null ? "—" : G.fmtEurSigno(f.plus)}</td>
         <td class="${f.pct == null ? "" : f.pct >= 0 ? "pos" : "neg"}">${f.pct == null ? "—" : G.fmtPctSigno(f.pct, 1)}</td>
@@ -1117,9 +1117,9 @@
     const num = v => String(v).replace(".", ",");
     const leyenda = zonas.map(z => `${z.et} desde ${num(z.en)} %`).join(" · ");
     return `<div class="medidor" role="img" aria-label="Préstamo sobre garantía: ${pctTxt(x.ratio)}${lim ? `, límite ${num(x.ltvMax)} %` : ""}. Zonas: ${leyenda}">
-      <div class="pista"><div class="nivel ${x.nivel || ""}" style="width:${r.toFixed(1)}%"></div>
-        ${zonas.map(z => `<i class="zonaLtv ${z.cl}" style="left:${z.en}%"></i>`).join("")}
-        ${lim ? `<div class="marca" style="left:${lim}%"></div><span class="marcaEt" style="left:${Math.min(Math.max(lim, 12), 88)}%">límite ${num(x.ltvMax)} %</span>` : ""}</div>
+      <div class="pista"><div class="nivel ${x.nivel || ""}" data-st="width:${r.toFixed(1)}%"></div>
+        ${zonas.map(z => `<i class="zonaLtv ${z.cl}" data-st="left:${z.en}%"></i>`).join("")}
+        ${lim ? `<div class="marca" data-st="left:${lim}%"></div><span class="marcaEt" data-st="left:${Math.min(Math.max(lim, 12), 88)}%">límite ${num(x.ltvMax)} %</span>` : ""}</div>
       <div class="eje"><span>0 %</span><span>50 %</span><span>100 % de la garantía</span></div>
       <div class="zonasLey"><i class="zonaLtv warn"></i>atención desde ${num(zonas[0].en)} % <i class="zonaLtv danger"></i>riesgo alto desde ${num(zonas[1].en)} %</div></div>`;
   }
@@ -1148,14 +1148,14 @@
     const cal = x.calendario || { proximas: [], saldoAnual: [] };
     const calend = activa && cal.proximas.length ? `
       <h3 class="sub">Próximas cuotas y deuda a final de año</h3>
-      <div class="rejilla2" style="margin-top:8px">
+      <div class="rejilla2" data-st="margin-top:8px">
         <div class="tablaEnv"><table class="dt"><thead><tr><th>Fecha</th><th>Cuota</th><th>Intereses</th><th>Amortizas</th><th>Queda</th></tr></thead>
           <tbody>${cal.proximas.slice(0, 6).map(r => `<tr><td>${G.fmtFecha(r.fecha)}</td><td>${G.fmtEur(r.cuota)}</td><td>${G.fmtEur(r.intereses)}</td>
             <td>${G.fmtEur(r.amortizado)}</td><td>${G.fmtEur(r.pendiente)}</td></tr>`).join("")}</tbody></table></div>
         <div class="tablaEnv"><table class="dt"><thead><tr><th>Cierre de año</th><th>Deuda pendiente</th></tr></thead>
           <tbody>${cal.saldoAnual.slice(0, 8).map(r => `<tr><td>${r.ano}</td><td>${G.fmtEur(r.saldo, 0)}</td></tr>`).join("")}</tbody></table></div>
       </div>` : "";
-    return `<section class="tarjeta" style="margin-top:16px" aria-labelledby="pr-${esc(x.id)}">
+    return `<section class="tarjeta" data-st="margin-top:16px" aria-labelledby="pr-${esc(x.id)}">
       <header>
         <h2 id="pr-${esc(x.id)}">${esc(x.nombre)}</h2>
         ${activa ? `<span class="badge ${NIVEL_CL[x.nivel] || ""}">${nivelEt(x.nivel, x.ltvMax)}</span>` : '<span class="badge ok">Liquidada</span>'}
@@ -1180,7 +1180,7 @@
           <li><b>Liquidación forzosa:</b> si su valor baja demasiado, la entidad puede pedirte más garantía o vender por ti, aunque sea en mal momento.</li>
           <li><b>Coste:</b> pagas un ${String(x.interes).replace(".", ",")} % anual; lo que reinviertas debe rendir más que eso para compensar.</li>
           <li><b>Patrimonio neto:</b> la deuda se resta de tu patrimonio, así que no se infla con el dinero recibido.</li></ul></div></details>
-        <div class="activos" style="margin-top:12px">${x.activosDetalle.map(a => `<span class="badge lock">${ICO_LOCK} ${esc(a.nombre)} · ${G.fmtEur(a.valor, 0)}</span>`).join(" ")}</div>`
+        <div class="activos" data-st="margin-top:12px">${x.activosDetalle.map(a => `<span class="badge lock">${ICO_LOCK} ${esc(a.nombre)} · ${G.fmtEur(a.valor, 0)}</span>`).join(" ")}</div>`
       : `<p class="subt">Liquidada el ${G.fmtFecha(x.fechaLiquidacion)}. Recibiste ${G.fmtEur(x.recibido)} y has pagado ${G.fmtEur(x.interesesPagados)} de intereses.</p>`}
     </section>`;
   }
@@ -1191,14 +1191,14 @@
     const top = T.items.slice(0, 10);
     const UMBRAL = umbralesAl().concentracionValor / 100;
     const cub = (T.cobertura || []).length;
-    return `<section class="tarjeta" style="margin-top:16px" aria-labelledby="transpTit">
+    return `<section class="tarjeta" data-st="margin-top:16px" aria-labelledby="transpTit">
       <header><h2 id="transpTit">Qué tienes de verdad dentro</h2>
         <span class="subt">Mayores posiciones de tus fondos, sumadas, más tus acciones directas</span></header>
       <div class="conc">${top.map(i => `<div class="f ${i.peso > UMBRAL ? "alta" : ""}" title="${esc(i.fuentes.map(f => f.producto + ": " + G.fmtEur(f.valor, 0) + (f.directa ? " (directa)" : "")).join(" · "))}">
           <span>${esc(i.nombre)}${i.pais ? ` <small class="subt">${esc(i.pais)}</small>` : ""}</span>
-          <span class="b"><i style="width:${Math.min(100, i.peso * 100 * 3).toFixed(1)}%"></i></span>
+          <span class="b"><i data-st="width:${Math.min(100, i.peso * 100 * 3).toFixed(1)}%"></i></span>
           <span class="p">${G.fmtPct(i.peso, 1)}</span></div>`).join("")}</div>
-      <p class="subt" style="margin-top:12px">Es un <b>mínimo</b>: de cada fondo solo se conocen sus mayores posiciones
+      <p class="subt" data-st="margin-top:12px">Es un <b>mínimo</b>: de cada fondo solo se conocen sus mayores posiciones
         (datos de ${cub} ${cub === 1 ? "fondo" : "fondos"}${T.fecha ? ", a " + G.fmtFecha(T.fecha) : ""}).
         ${(T.sinDatos || []).length ? "Sin datos: " + esc(T.sinDatos.slice(0, 6).join(", ")) + (T.sinDatos.length > 6 ? "…" : "") + "." : ""}
         ${(T.cobertura || []).filter(c => c.cubierto < 10).length ? "Casi sin datos (menos del 10 % del fondo): " +
@@ -1243,7 +1243,7 @@
         <div id="grafIngresos" data-titulo="Ingresos cobrados por mes"></div>
         <div class="tablaEnv"><table class="dt"><thead><tr><th>Producto</th><th>12 meses</th><th>Sobre coste</th><th>Sobre valor</th><th>Último cobro</th></tr></thead>
           <tbody>${filasProd}</tbody></table></div>
-        <div class="tablaEnv" style="margin-top:16px"><table class="dt"><thead><tr><th>Año</th><th>Cobrado</th></tr></thead>
+        <div class="tablaEnv" data-st="margin-top:16px"><table class="dt"><thead><tr><th>Año</th><th>Cobrado</th></tr></thead>
           <tbody>${filasAno}</tbody></table></div>
       </section>`;
     G.barrasSimples($("#grafIngresos"), {
@@ -1283,7 +1283,7 @@
           : v.reembolso ? '<span class="badge">Plusvalía de reembolso</span>' : v.resultado < 0 ? '<span class="badge ok">Computa</span>' : ""}</td></tr>`).join("");
     cont.innerHTML = `
       <div class="alerta warn" role="note">${ICO_ALERTA}<div><b>Orientativo, no es tu declaración.</b> ${esc(F.aviso)}</div></div>
-      <section class="tarjeta" style="margin-top:16px" aria-labelledby="fisTit">
+      <section class="tarjeta" data-st="margin-top:16px" aria-labelledby="fisTit">
         <header><h2 id="fisTit">Ahorro ${a.ano}</h2><div class="sep"></div>
           <div class="segm" id="segFiscalAno" role="group" aria-label="Año"></div></header>
         <div class="riesgoGrid">
@@ -1297,15 +1297,15 @@
         ${a.tramos.length ? `<div class="tablaEnv"><table class="dt"><thead><tr><th>Tramo de la base</th><th>Tipo</th><th>Parte</th><th>Cuota</th></tr></thead>
           <tbody>${a.tramos.map(t => `<tr><td>${G.fmtEur(t.desde, 0)} – ${t.hasta == null ? "en adelante" : G.fmtEur(t.hasta, 0)}</td><td>${G.fmtPct(t.tipo, 0)}</td><td>${G.fmtEur(t.parte)}</td><td>${G.fmtEur(t.cuota)}</td></tr>`).join("")}</tbody></table></div>` : ""}
       </section>
-      <section class="tarjeta" style="margin-top:16px" aria-labelledby="fisVentas">
+      <section class="tarjeta" data-st="margin-top:16px" aria-labelledby="fisVentas">
         <header><h2 id="fisVentas">Ventas de ${a.ano}</h2><span class="subt">Primeras compras, primeras ventas (FIFO) por producto</span></header>
         ${filas ? `<div class="tablaEnv"><table class="dt stress"><thead><tr><th>Fecha</th><th>Producto</th><th>Unidades</th><th>Importe</th><th>Coste</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>${filas}</tbody></table></div>`
           : `<p class="vacio">${ICO_ROSA}No hay ventas anotadas este año.</p>`}
-        ${a.arrastrePendiente.length ? `<p class="subt" style="margin-top:12px"><b>Pérdidas por compensar</b> (caducan a los ${F.anosArrastre} años): ${
+        ${a.arrastrePendiente.length ? `<p class="subt" data-st="margin-top:12px"><b>Pérdidas por compensar</b> (caducan a los ${F.anosArrastre} años): ${
           a.arrastrePendiente.map(x => `${G.fmtEur(x.importe)} de ${x.ano}`).join(" · ")}.</p>` : ""}
       </section>
       ${tarjeta720(F)}
-      <section class="tarjeta" style="margin-top:16px"><header><h2>Lo que esta pantalla no sabe</h2></header>
+      <section class="tarjeta" data-st="margin-top:16px"><header><h2>Lo que esta pantalla no sabe</h2></header>
         <ul class="notas"><li><b>Traspasos entre fondos:</b> no tributan y conservan coste y antigüedad; Rumbo los ve como venta y compra. Si has hecho alguno, el resultado de ese año no es fiable.</li>
           <li><b>Retenciones y comunidad autónoma:</b> la escala del ahorro es estatal y la misma en todo el territorio común, pero no se descuentan retenciones.</li>
           <li><b>Recompra:</b> el plazo es de 2 meses para valores cotizados (acciones, ETF) y de 1 año para los no cotizados (fondos). Se detecta por producto, sin mirar si el saldo posterior queda a cero.</li>
@@ -1318,7 +1318,7 @@
   function tarjeta720(F) {
     const m = F.modelo720;
     const cat = m.categorias;
-    return `<section class="tarjeta" style="margin-top:16px" aria-labelledby="t720">
+    return `<section class="tarjeta" data-st="margin-top:16px" aria-labelledby="t720">
       <header><h2 id="t720">Modelos 720 y 721 · bienes en el extranjero</h2></header>
       <p>Solo cuentan los bienes <b>custodiados fuera de España</b> a 31 de diciembre: más de ${G.fmtEur(m.umbral, 0)} en una categoría
         (cuentas, valores, inmuebles), o en criptomonedas en conjunto. Marca cada producto en <b>Datos → Productos → «Dónde está custodiado»</b>.</p>
@@ -1344,11 +1344,11 @@
       ${lista.length ? lista.map(tarjetaPrestamo).join("") : `<section class="tarjeta"><header><h2>Préstamos con garantía</h2></header>
         <p class="vacio">${window.ESTATICO ? "Esta versión exportada no incluye los préstamos." : "No tienes ninguna pignoración anotada. Si pignoras activos para pedir un préstamo, anótala en Datos → Pignoraciones y aquí verás tu margen, el estrés de mercado y el calendario."}</p></section>`}
       ${tarjetaTransparencia()}
-      <section class="tarjeta" style="margin-top:16px" aria-labelledby="concTit">
+      <section class="tarjeta" data-st="margin-top:16px" aria-labelledby="concTit">
         <header><h2 id="concTit">Concentración</h2><span class="subt">Peso de cada producto sobre lo que tienes invertido (sin efectivo)</span></header>
         <div class="conc">${top.map(t => `<div class="f ${t.peso > UMBRAL ? "alta" : ""}"><span>${esc(t.p.corto || t.p.nombre)}</span>
-          <span class="b"><i style="width:${(t.peso * 100).toFixed(1)}%"></i></span><span class="p">${G.fmtPct(t.peso, 1)}</span></div>`).join("")}</div>
-        ${top.some(t => t.peso > UMBRAL) ? `<p class="subt" style="margin-top:12px">Marcados en ámbar los productos que pesan más del ${Math.round(UMBRAL * 100)} %.
+          <span class="b"><i data-st="width:${(t.peso * 100).toFixed(1)}%"></i></span><span class="p">${G.fmtPct(t.peso, 1)}</span></div>`).join("")}</div>
+        ${top.some(t => t.peso > UMBRAL) ? `<p class="subt" data-st="margin-top:12px">Marcados en ámbar los productos que pesan más del ${Math.round(UMBRAL * 100)} %.
           Los fondos indexados ya reparten el riesgo por dentro; una sola acción pequeña, no.</p>` : ""}
       </section>`;
     cont.querySelectorAll("[data-gestion]").forEach(b => {
@@ -1384,7 +1384,7 @@
       `<thead><tr>${cols.map(c => `<th class="orden" data-c="${c[0]}">${c[1]}${o.col === c[0] ? (o.desc ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
        <tbody>${f.map(r => `<tr>
         <td>${G.fmtFecha(r.fecha)}</td>
-        <td><i class="pt" style="background:${r.color}"></i>${r.producto}</td>
+        <td><i class="pt" data-st="background:${r.color}"></i>${r.producto}</td>
         <td>${G.fmtEur(r.importe)}</td>
         <td>${r.valor != null ? G.fmtEur(r.valor) : "—"}</td>
         <td class="${r.pl >= 0 ? "pos" : "neg"}">${r.pl != null ? G.fmtEurSigno(r.pl) : "—"}</td>
@@ -1462,7 +1462,7 @@
       trozos.push(`rentabilidad de la cartera
         <span class="${r.rentabilidad >= 0 ? "pos" : "neg"} fuerte">${G.fmtPctSigno(r.rentabilidad)}</span>`);
     }
-    $("#mesSub").innerHTML = trozos.join('<span style="color:var(--tinta3)">·</span>');
+    $("#mesSub").innerHTML = trozos.join('<span data-st="color:var(--tinta3)">·</span>');
 
     const tarjetas = [
       { e: "Lo pusiste tú", v: G.fmtEur(r.aportado, 0), n: "aportaciones del mes", c: G.css("--s1") },
@@ -1480,7 +1480,7 @@
       n: "no es dinero nuevo: es que empiezas a seguirlo", c: G.css("--s7")
     });
     $("#mesTarjetas").innerHTML = tarjetas.map(t =>
-      `<div class="mesT" style="--c:${t.c}"><span class="barra"></span>
+      `<div class="mesT" data-st="--c:${t.c}"><span class="barra"></span>
         <div class="e">${t.e}</div><div class="v ${t.cl || ""}">${t.v}</div><div class="n">${t.n}</div></div>`).join("");
 
     // tabla por componente
@@ -1494,7 +1494,7 @@
        <tbody>${filas.map(({ p, d }) => {
         const var_ = d.fin - d.inicio;
         return `<tr>
-          <td><i class="pt" style="background:${color(p)}"></i>${esc(p.corto || p.nombre)}</td>
+          <td><i class="pt" data-st="background:${color(p)}"></i>${esc(p.corto || p.nombre)}</td>
           <td>${G.fmtEur(d.inicio)}</td>
           <td>${d.aportado ? G.fmtEur(d.aportado) : "—"}</td>
           <td class="${d.mercado >= 0 ? "pos" : "neg"}">${G.fmtEurSigno(d.mercado)}</td>
@@ -1570,15 +1570,15 @@
 
     sec.innerHTML = `
       <header>
-        <h2><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color(p)};margin-right:9px"></span>${esc(p.nombre)}</h2>
+        <h2><span data-st="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color(p)};margin-right:9px"></span>${esc(p.nombre)}</h2>
         <div class="sep"></div>
         ${hayVL ? '<div class="segm" id="segSerie"></div>' : ""}
       </header>
       ${p.papel ? `<div class="papel">${esc(p.papel)}</div>` : ""}
-      ${p.indiceDetalle ? `<p style="color:var(--tinta2);font-size:13.5px;margin:0 0 16px">${esc(p.indiceDetalle)}</p>` : ""}
+      ${p.indiceDetalle ? `<p data-st="color:var(--tinta2);font-size:13.5px;margin:0 0 16px">${esc(p.indiceDetalle)}</p>` : ""}
       <div class="ficha">${campos.map(c => `<div><dt>${c[0]}</dt><dd>${c[1]}</dd></div>`).join("")}</div>
       <div id="ventanas"></div>
-      ${pocos ? '<p class="subt" style="margin:0 0 12px">Solo hay un valor anotado, así que aún no hay curva. Anota más en «Mis datos → Saldos y valores».</p>' : ""}
+      ${pocos ? '<p class="subt" data-st="margin:0 0 12px">Solo hay un valor anotado, así que aún no hay curva. Anota más en «Mis datos → Saldos y valores».</p>' : ""}
       <div class="envGraf" id="grafFondo"></div>
       <div class="tramos" id="tramosLey"></div>`;
 
@@ -1654,9 +1654,9 @@
            ["Habitual", medio],
            ["Extraordinaria", "más de " + G.fmtEur(t.p67, 0)]];
       $("#tramosLey").innerHTML =
-        `<span style="color:var(--tinta3)">Tamaño de cada aportación, medido con tu propio historial en este producto:</span>` +
-        et.map((e, i) => `<span><i class="${i === 2 ? "aro" : ""}" style="background:${paleta[i]};color:${paleta[i]}"></i>
-          ${e[0]} <span style="color:var(--tinta3)">${e[1]}${cuenta[i] ? " · " + cuenta[i] : ""}</span></span>`).join("");
+        `<span data-st="color:var(--tinta3)">Tamaño de cada aportación, medido con tu propio historial en este producto:</span>` +
+        et.map((e, i) => `<span><i class="${i === 2 ? "aro" : ""}" data-st="background:${paleta[i]};color:${paleta[i]}"></i>
+          ${e[0]} <span data-st="color:var(--tinta3)">${e[1]}${cuenta[i] ? " · " + cuenta[i] : ""}</span></span>`).join("");
     } else $("#tramosLey").innerHTML = "";
   }
 
@@ -1673,12 +1673,12 @@
         <div class="sep"></div>
         <span class="expoNota ${viejo ? "viejo" : ""}">${viejo ? "⚠ " : ""}Datos a ${G.fmtFecha(e.actualizado)}${viejo ? " · conviene refrescarlos" : ""}</span>
       </header>
-      <p class="subt" style="margin:0 0 18px">${e.constituyentes ? e.constituyentes.toLocaleString("es-ES") + " empresas. " : ""}${e.fuente}. Datos del índice a la fecha indicada.</p>
+      <p class="subt" data-st="margin:0 0 18px">${e.constituyentes ? e.constituyentes.toLocaleString("es-ES") + " empresas. " : ""}${e.fuente}. Datos del índice a la fecha indicada.</p>
       <div class="expo">
         <div><h3>Por país</h3><div class="envGraf" id="expoPaises"></div></div>
         <div><h3>Por sector</h3><div class="envGraf" id="expoSectores"></div></div>
       </div>
-      ${e.top10 ? `<h3 style="font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--tinta3);margin:24px 0 10px">
+      ${e.top10 ? `<h3 data-st="font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--tinta3);margin:24px 0 10px">
         Las 10 mayores posiciones · ${e.top10.reduce((a, x) => a + x[1], 0).toFixed(1)} % del fondo</h3>
         <div class="tablaEnv"><table class="dt"><tbody>${e.top10.map(x =>
           `<tr><td>${x[0]}</td><td>${x[1].toLocaleString("es-ES", { minimumFractionDigits: 2 })} %</td></tr>`).join("")}</tbody></table></div>` : ""}`;
@@ -1709,7 +1709,7 @@
           const dias = Math.round((hoy - new Date(a.fecha)) / 864e5);
           const niv = a.nivel == null ? 1 : a.nivel;
           return `<tr><td>${G.fmtFecha(a.fecha)}</td>
-            <td><i class="pt" style="background:${paleta[niv]}"></i>${G.fmtEur(a.importe)}</td>
+            <td><i class="pt" data-st="background:${paleta[niv]}"></i>${G.fmtEur(a.importe)}</td>
             <td>${G.nfNum.format(a.participaciones || 0)}</td>
             <td>${a.precio != null ? G.fmtEur(a.precio) : "—"}</td>
             <td>${a.valor != null ? G.fmtEur(a.valor) : "—"}</td>
@@ -1746,13 +1746,13 @@
       const celda = (v, d) => v == null
         ? `<td class="subt">${verProducto ? "—" : "aún no lo tenías"}</td>`
         : `<td class="${v >= 0 ? "pos" : "neg"}">${G.fmtPctSigno(v, 1)}` +
-          `${d ? `<span class="subt" style="font-weight:400"> · desde ${corto(d)}</span>` : ""}</td>`;
+          `${d ? `<span class="subt" data-st="font-weight:400"> · desde ${corto(d)}</span>` : ""}</td>`;
       const prods = D.productos.filter(p => tabla[p.id]);
       $("#tablaAnual").innerHTML =
         `<thead><tr><th>Producto</th>${ra.anos.map((a, i) =>
           `<th>${a}${ra.parcial[i] ? " *" : ""}</th>`).join("")}</tr></thead>
          <tbody>${prods.map(p => `<tr>
-           <td><i class="pt" style="background:${color(p)}"></i>${esc(p.corto)}</td>
+           <td><i class="pt" data-st="background:${color(p)}"></i>${esc(p.corto)}</td>
            ${tabla[p.id].map((v, i) => celda(v, (desde[p.id] || [])[i])).join("")}
          </tr>`).join("")}</tbody>` +
         (verProducto ? "" : `<tfoot><tr><td>Tu cartera</td>${ra.cartera.map(v =>
@@ -1788,7 +1788,7 @@
          <tbody>${comp.map((c, i) => {
           const m = c.metricas;
           return `<tr class="${c.real ? "destacada" : ""}">
-            <td><i class="pt" style="background:${series[i].color}"></i>${esc(c.nombre)}</td>
+            <td><i class="pt" data-st="background:${series[i].color}"></i>${esc(c.nombre)}</td>
             <td class="${m.rentTotal >= 0 ? "pos" : "neg"}">${G.fmtPctSigno(m.rentTotal, 1)}</td>
             <td class="${m.cagr >= 0 ? "pos" : "neg"}">${G.fmtPctSigno(m.cagr, 1)}</td>
             <td>${G.fmtPct(m.vol, 1)}</td>
@@ -1812,7 +1812,7 @@
       $("#tablaComisiones").innerHTML =
         `<thead><tr><th>Producto</th><th>Comisión</th><th>Sobre</th><th>Al año</th><th>Al mes</th></tr></thead>
          <tbody>${c.lineas.map(l => `<tr>
-            <td><i class="pt" style="background:${temaOscuro() ? l.color[1] : l.color[0]}"></i>${esc(l.nombre)}</td>
+            <td><i class="pt" data-st="background:${temaOscuro() ? l.color[1] : l.color[0]}"></i>${esc(l.nombre)}</td>
             <td>${G.fmtPct(l.ter, 2)}</td><td>${G.fmtEur(l.valor, 0)}</td>
             <td>${G.fmtEur(l.anual)}</td><td>${G.fmtEur(l.anual / 12)}</td></tr>`).join("")}</tbody>
          <tfoot><tr><td>Total</td><td>${G.fmtPct(c.terPonderado, 3)}</td>
@@ -2062,7 +2062,7 @@
   } catch (e) {
     console.error(e);
     document.querySelector(".env").insertAdjacentHTML("afterbegin",
-      '<div class="av" style="margin:20px 0"><span>⚠</span><span><b>Algo ha fallado al pintar el panel.</b> ' +
+      '<div class="av" data-st="margin:20px 0"><span>⚠</span><span><b>Algo ha fallado al pintar el panel.</b> ' +
       String(e && e.message || e) + '<br>Cierra la app y vuelve a abrirla con «Iniciar»; si sigue igual, pulsa F12 y mira la consola del navegador.</span></div>');
   }
   // ?ir=seccionComparar pone esa sección la primera de su pestaña (para capturas y enlaces).

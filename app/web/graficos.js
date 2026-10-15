@@ -276,7 +276,7 @@
     g.appendChild(puntoTot);
     svg.appendChild(g);
 
-    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair" });
+    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
 
@@ -296,7 +296,7 @@
       });
       puntoTot.setAttribute("cx", x(i)); puntoTot.setAttribute("cy", y(totales[i]));
       let filas = series.map((s, k) => s.valores[i]
-        ? `<tr><td><i style="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>` : "")
+        ? `<tr><td><i data-st="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>` : "")
         .reverse().join("");
       if (cfg.overlay && cfg.overlay.valores[i] != null)
         filas += `<tr class="sep"><td><i class="raya"></i>${cfg.overlay.nombre}</td><td>${fmtEur(cfg.overlay.valores[i])}</td></tr>`;
@@ -398,7 +398,7 @@
     const punto = el("circle", { r: 5.5, fill: cfg.color, class: "punto" });
     g.appendChild(linea); g.appendChild(punto);
     svg.appendChild(g);
-    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair" });
+    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
 
@@ -493,7 +493,7 @@
       resalte.setAttribute("x", P.l + paso * i);
       resalte.setAttribute("opacity", 1);
       const filas = series.map(s => s.valores[i]
-        ? `<tr><td><i style="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>` : "")
+        ? `<tr><td><i data-st="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>` : "")
         .reverse().join("");
       tt.innerHTML = `<b>${fmtMes(cats[i])}</b><div class="ttTotal">${fmtEur(totales[i])}</div><table>${filas}</table>`;
       tt.classList.add("on");
@@ -732,7 +732,7 @@
     const puntos = series.map(s => el("circle", { r: 4.5, fill: s.color, class: "punto" }));
     puntos.forEach(p => g.appendChild(p));
     svg.appendChild(g);
-    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair" });
+    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
 
@@ -751,7 +751,7 @@
         if (v != null) { puntos[k].setAttribute("cx", x(i)); puntos[k].setAttribute("cy", y(v)); }
       });
       tt.innerHTML = `<b>${fmtFecha(fechas[i])}</b><table>` + orden.map(o =>
-        `<tr${o.s.destacado ? ' class="sep"' : ""}><td><i style="background:${o.s.color}"></i>${o.s.nombre}</td>
+        `<tr${o.s.destacado ? ' class="sep"' : ""}><td><i data-st="background:${o.s.color}"></i>${o.s.nombre}</td>
          <td>${(cfg.formatoValor || (v => v.toFixed(1)))(o.v)}</td></tr>`).join("") + "</table>";
       tt.classList.add("on");
       colocaTooltip(tt, cont, x(i) * (r.width / W), ev.clientY - r.top);
@@ -835,7 +835,7 @@
       resalte.setAttribute("opacity", 1);
       const fV = cfg.formatoValor || fmtEur;
       const filas = series.map(s => s.valores[i] == null ? "" :
-        `<tr><td><i style="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>`).join("");
+        `<tr><td><i data-st="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>`).join("");
       const total = series.reduce((a, s) => a + (s.valores[i] || 0), 0);
       tt.innerHTML = `<b>${cfg.formatoCat ? cfg.formatoCat(cats[i]) : cats[i]}</b>` +
         `<div class="ttTotal">${fV(total)}</div><table>${filas}</table>`;

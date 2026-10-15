@@ -147,7 +147,7 @@
   function pinta() {
     const cont = $("#editor");
     if (!cont) return;
-    if (!E.cfg) { cont.innerHTML = '<p class="subt" style="margin-top:24px">Cargando tus datos…</p>'; return; }
+    if (!E.cfg) { cont.innerHTML = '<p class="subt" data-st="margin-top:24px">Cargando tus datos…</p>'; return; }
     let html = "";
     // En la demo ya se ve arriba el aviso con el botón «Empezar con mis datos».
     if (E.modo !== "demo" && !E.cfg.productos.length) {
@@ -335,7 +335,7 @@
       const n = soloSaldo(p) || manual(p)
         ? E.cfg.valoraciones.filter(v => v.producto === p.id).length + " valores"
         : E.cfg.movimientos.filter(m => m.producto === p.id).length + " movs.";
-      return `<tr><td><i class="pt" style="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}
+      return `<tr><td><i class="pt" data-st="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}
           ${p.identificador ? `<small class="idp">${esc(p.identificador)}</small>` : ""}</td>
         <td>${esc(E.tipos[p.tipo] || p.tipo)}</td><td>${precioDe(p)}</td>
         <td>${esc(E.fuentes[p.fuente] || "")}${p.codigo ? ` <small>${esc(p.codigo)}</small>` : ""}</td>
@@ -373,7 +373,7 @@
     p = p || { tipo: "fondo", fuente: "morningstar", moneda: "EUR", largoPlazo: true, slot: siguienteColor() };
     const clases = [...new Set(E.cfg.productos.map(x => x.clase).filter(Boolean))];
     const colores = Array.from({ length: 12 }, (_, i) =>
-      `<label class="color" style="--c:var(--s${i + 1})" title="Color ${i + 1}"><input type="radio" name="slot" value="${i + 1}"><i></i></label>`).join("");
+      `<label class="color" data-st="--c:var(--s${i + 1})" title="Color ${i + 1}"><input type="radio" name="slot" value="${i + 1}"><i></i></label>`).join("");
     const f = abreModal(nuevo ? "Añadir producto" : "Editar " + esc(nombre(p)), `
       <div class="buscador">
         <div class="tit">Busca tu producto</div>
@@ -469,7 +469,7 @@
             (viene en la ficha del producto en tu banco) o elige «Valor anotado a mano».</p>`;
           return;
         }
-        res.innerHTML = j.resultados.map((r, i) => `<button type="button" class="bItem" data-i="${i}" style="--c:${COLOR_FUENTE[r.fuente]}">
+        res.innerHTML = j.resultados.map((r, i) => `<button type="button" class="bItem" data-i="${i}" data-st="--c:${COLOR_FUENTE[r.fuente]}">
           <span class="franja"></span>
           <span><span class="nm">${esc(r.nombre || r.codigo)}</span>
             <span class="meta"><span>${esc(r.codigo)}</span>${r.mercado && r.mercado !== E.fuentes[r.fuente] ? `<span>${esc(r.mercado)}</span>` : ""}<span>${esc(E.fuentes[r.fuente])}</span></span></span>
@@ -519,8 +519,8 @@
     const filas = movs.map(m => {
       const p = prod(m.producto);
       const precio = m.unidades ? (m.importe - (m.comision || 0)) / m.unidades : null;
-      return `<tr><td>${fecha(m.fecha)}</td><td style="text-align:left">${p ? `<i class="pt" style="background:var(--s${p.slot || 1})"></i>` : ""}${esc(nombre(p))}</td>
-        <td style="text-align:left">${esc(E.tiposMov[m.tipo] || m.tipo)}</td>
+      return `<tr><td>${fecha(m.fecha)}</td><td data-st="text-align:left">${p ? `<i class="pt" data-st="background:var(--s${p.slot || 1})"></i>` : ""}${esc(nombre(p))}</td>
+        <td data-st="text-align:left">${esc(E.tiposMov[m.tipo] || m.tipo)}</td>
         <td>${m.unidades ? num(m.unidades) : "—"}</td>
         <td class="${m.tipo === "compra" || m.tipo === "comision" ? "" : "pos"}">${eur(m.importe)}</td>
         <td>${precio ? num(precio) + " €" : "—"}</td>
@@ -533,10 +533,10 @@
         <select id="edFiltro" aria-label="Filtrar por producto"><option value="todos">Todos los productos</option>
           ${cotizables.map(p => `<option value="${esc(p.id)}"${p.id === E.filtro ? " selected" : ""}>${esc(nombre(p))}</option>`).join("")}</select>
         <button class="btn prim" data-acc="nuevoMov">+ Añadir movimiento</button></header>
-      ${filas ? `<div class="tablaEnv alto"><table class="dt"><thead><tr><th>Fecha</th><th style="text-align:left">Producto</th>
-        <th style="text-align:left">Tipo</th><th>Unidades</th><th>Importe</th><th>Precio por unidad</th>
-        <th style="text-align:left">Nota</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
-        <p class="subt" style="margin-top:10px">${movs.length} movimientos.</p>`
+      ${filas ? `<div class="tablaEnv alto"><table class="dt"><thead><tr><th>Fecha</th><th data-st="text-align:left">Producto</th>
+        <th data-st="text-align:left">Tipo</th><th>Unidades</th><th>Importe</th><th>Precio por unidad</th>
+        <th data-st="text-align:left">Nota</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>
+        <p class="subt" data-st="margin-top:10px">${movs.length} movimientos.</p>`
         : '<p class="subt">No hay movimientos todavía.</p>'}</section>`;
   }
 
@@ -556,7 +556,7 @@
       `<label><input type="radio" name="tipo" value="${esc(k)}"><span>${esc(k === "dividendo" ? "Dividendo" : v)}</span></label>`).join("");
     const f = abreModal(nuevo ? "Añadir movimiento" : "Editar movimiento", `
       <div class="pildoras">${pildoras}</div>
-      <div class="rejilla" style="margin-top:18px">
+      <div class="rejilla" data-st="margin-top:18px">
         ${campo("Producto", `<select name="producto">${cotizables.map(p =>
           `<option value="${esc(p.id)}">${esc(nombre(p))}</option>`).join("")}</select>`, "", "ancho")}
         ${campo("Fecha", `<input type="date" name="fecha" max="${hoy()}">`)}
@@ -616,7 +616,7 @@
         ${conAportado ? `<td>${v.aportado != null ? eur(v.aportado) : "—"}</td>` : ""}
         <td class="acc"><button data-acc="editarValor" data-id="${esc(v.id)}">Editar</button>
           <button data-acc="borrarValor" data-id="${esc(v.id)}">Borrar</button></td></tr>`).join("");
-      return `<section class="tarjeta saldo"><header><h2><i class="pt" style="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}</h2>
+      return `<section class="tarjeta saldo"><header><h2><i class="pt" data-st="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}</h2>
           <span class="subt">${esc(E.tipos[p.tipo] || "")}${p.entidad ? " · " + esc(p.entidad) : ""}</span><span class="sp"></span>
           <button class="btn" data-acc="nuevoValor" data-id="${esc(p.id)}">+ Anotar</button></header>
         ${filas ? `<div class="tablaEnv"><table class="dt"><thead><tr><th>Fecha</th><th>${etiquetaValor(p)}</th>
@@ -662,7 +662,7 @@
       <div class="rejilla">${campo("Fecha", `<input type="date" name="fecha" max="${hoy()}" value="${hoy()}">`)}</div>
       <div class="listaValores">${lista.map(p => {
         const u = ultimo(p.id);
-        return `<label class="filaValor"><span><span class="nm"><i class="pt" style="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}</span>
+        return `<label class="filaValor"><span><span class="nm"><i class="pt" data-st="background:var(--s${p.slot || 1})"></i>${esc(nombre(p))}</span>
           <small>${u ? `Último: ${eur(u.valor)} el ${fecha(u.fecha)}` : "Sin valores todavía"}</small></span>
           <span class="conSufijo"><input name="v_${esc(p.id)}" inputmode="decimal" placeholder="${u ? decimal(u.valor) : "0,00"}"><span>€</span></span></label>`;
       }).join("")}</div>
@@ -810,9 +810,9 @@
         <span>${esc(E.fuentes[p.fuente])}</span>${p.precio ? `<span>${num(p.precio)} ${esc(p.monedaPrecio)} · ${fecha(p.fechaPrecio)}</span>` : ""}</span></div>`).join("")}</div>` : "";
     const ESTADO = { nuevo: "Nuevo", repetido: "Ya estaba", error: "Con error" };
     const filas = inf.filas.map(f => `<tr class="est-${f.estado}"><td>${fecha(f.fecha)}</td>
-      <td style="text-align:left">${esc(f.productoNombre)}</td><td style="text-align:left">${esc(E.tiposMov[f.tipo] || "Saldo")}</td>
+      <td data-st="text-align:left">${esc(f.productoNombre)}</td><td data-st="text-align:left">${esc(E.tiposMov[f.tipo] || "Saldo")}</td>
       <td>${f.unidades ? num(f.unidades) : "—"}</td><td>${eur(f.importe)}</td>
-      <td style="text-align:left">${f.marcas.map(m => `<span class="etqImp">${esc(m)}</span>`).join("")}</td>
+      <td data-st="text-align:left">${f.marcas.map(m => `<span class="etqImp">${esc(m)}</span>`).join("")}</td>
       <td><span class="estado">${ESTADO[f.estado]}</span></td></tr>`).join("");
     return `<section class="tarjeta"><header><h2>Vista previa</h2>
         <span class="subt">Todavía no se ha guardado nada.</span></header>
@@ -827,9 +827,9 @@
       <div class="comprueba"><b>Compara estas cifras con tu banco antes de confirmar.</b>
         ${IMP.origen === "ia" ? "Una IA puede equivocarse al copiar números o saltarse alguna fila: revisa sobre todo el total invertido." : ""}</div>
       ${avisos}${errores}${nuevos}
-      ${filas ? `<div class="tablaEnv alto" style="margin-top:16px"><table class="dt"><thead><tr><th>Fecha</th>
-        <th style="text-align:left">Producto</th><th style="text-align:left">Tipo</th><th>Unidades</th><th>Importe</th>
-        <th style="text-align:left"></th><th>Estado</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}
+      ${filas ? `<div class="tablaEnv alto" data-st="margin-top:16px"><table class="dt"><thead><tr><th>Fecha</th>
+        <th data-st="text-align:left">Producto</th><th data-st="text-align:left">Tipo</th><th>Unidades</th><th>Importe</th>
+        <th data-st="text-align:left"></th><th>Estado</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}
       <div class="imAcc"><button class="btn" data-acc="imCancelar">Cancelar</button><span class="sp"></span>
         <button class="btn prim" data-acc="imConfirmar" id="imConfirmarBtn"${n ? "" : " disabled"}>
           ${n ? `Importar ${n} ${n === 1 ? "dato" : "datos"}` : "No hay nada nuevo que importar"}</button></div></section>`;
@@ -876,8 +876,8 @@
     return `<section class="tarjeta"><header><h2>Cuándo avisarte</h2>
         <span class="subt">Tú decides a partir de cuánto salta cada aviso. Un campo vacío vuelve al valor de siempre.</span></header>
       <div class="tablaEnv"><table class="dt"><tbody>${UMBRALES_ED.map(([k, et, un, ay]) => `<tr>
-        <td style="text-align:left"><label for="umb_${k}">${et}</label><div class="ayuda">${ay}</div></td>
-        <td><input id="umb_${k}" data-umbral="${k}" inputmode="decimal" value="${esc(String(u[k]).replace(".", ","))}" ${propio ? "" : "disabled"} style="width:5em"> ${un}</td></tr>`).join("")}</tbody></table></div>
+        <td data-st="text-align:left"><label for="umb_${k}">${et}</label><div class="ayuda">${ay}</div></td>
+        <td><input id="umb_${k}" data-umbral="${k}" inputmode="decimal" value="${esc(String(u[k]).replace(".", ","))}" ${propio ? "" : "disabled"} data-st="width:5em"> ${un}</td></tr>`).join("")}</tbody></table></div>
       <div class="imAcc"><span class="subt" id="umbMsg" role="status">${propio ? "" : "Disponible cuando empieces tu propia cartera."}</span><span class="sp"></span>
         <button class="btn prim" data-acc="guardarAlertas" ${propio ? "" : "disabled"}>Guardar avisos</button></div></section>`;
   }
@@ -897,7 +897,7 @@
     }
     const propio = E.modo === "propio";
     const filas = (COP.lista || []).map(c => `<tr><td>${fecha(c.fecha.slice(0, 10))} <small>${c.fecha.slice(11, 16)}</small></td>
-      <td style="text-align:left">${esc(c.motivo)}</td><td>${c.productos}</td><td>${c.movimientos}</td>
+      <td data-st="text-align:left">${esc(c.motivo)}</td><td>${c.productos}</td><td>${c.movimientos}</td>
       <td class="acc"><button data-acc="recuperarCopia" data-id="${esc(c.archivo)}">Recuperar</button></td></tr>`).join("");
     return `<section class="tarjeta"><header><h2>Copia de seguridad</h2>
         <span class="subt">Un archivo con toda tu cartera, para guardarlo donde quieras o pasarlo a otro ordenador.</span></header>
@@ -917,7 +917,7 @@
       <section class="tarjeta"><header><h2>Copias automáticas</h2>
         <span class="subt">Antes de cada cambio se guarda una copia (las últimas 20). Si te equivocas, vuelve a una anterior.</span></header>
       ${COP.lista === null ? '<p class="cargando">Cargando…</p>' : filas
-        ? `<div class="tablaEnv alto"><table class="dt"><thead><tr><th>Fecha</th><th style="text-align:left">Motivo</th>
+        ? `<div class="tablaEnv alto"><table class="dt"><thead><tr><th>Fecha</th><th data-st="text-align:left">Motivo</th>
           <th>Productos</th><th>Movimientos</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>`
         : '<p class="subt">Todavía no hay copias: se crean solas en cuanto cambias algo.</p>'}</section>
 
@@ -926,7 +926,7 @@
       <label class="interruptor"><input type="checkbox" id="webOcultar"><span class="pista"></span>
         <span><b>Ocultar importes</b><small>Solo se ven porcentajes y la forma de las gráficas. Las cantidades reales no
           van dentro del archivo, ni siquiera escondidas.</small></span></label>
-      <ol class="pasos" style="margin-top:18px">
+      <ol class="pasos" data-st="margin-top:18px">
         <li><button class="btn prim" data-acc="exportarWeb">Descargar la web</button>
           Puedes abrirla con doble clic o mandarla por correo.</li>
         <li>Para tener un enlace: crea una carpeta, mete dentro el archivo, cámbiale el nombre a <code>index.html</code>

@@ -32,6 +32,8 @@ class Csp(unittest.TestCase):
         script = re.search(r"script-src ([^;]*)", csp).group(1)
         self.assertNotIn("unsafe-inline", script)
         self.assertNotIn("unsafe-eval", script)
+        estilo = re.search(r"style-src ([^;]*)", csp).group(1)
+        self.assertNotIn("unsafe-inline", estilo)                       # sin estilos en línea
         self.assertNotRegex(csp, r"https?:")
         self.assertIn("connect-src 'self'", csp)
 
@@ -43,10 +45,23 @@ class Csp(unittest.TestCase):
         self.assertNotRegex(html, r"\son[a-z]+\s*=")
         self.assertNotIn("javascript:", html)
 
+    def test_no_quedan_estilos_en_linea_en_la_interfaz(self):
+        """Los atributos style (y setAttribute("style")) los bloquea la CSP: se usa data-st + estilos.js."""
+        for nombre in ("index.html", "app.js", "editor.js", "graficos.js", "alertas.js", "cargador.js"):
+            with open(os.path.join(WEB, nombre), encoding="utf-8") as f:
+                texto = f.read()
+            self.assertNotRegex(texto, r"""[\s"']style\s*=\s*["']""", nombre)
+            self.assertNotIn('setAttribute("style"', texto, nombre)
+        with open(os.path.join(WEB, "index.html"), encoding="utf-8") as f:
+            html = f.read()
+        self.assertLess(html.index('src="estilos.js"'), html.index('src="cargador.js"'))
+
     def test_la_web_exportada_sigue_llevando_los_scripts(self):
         html = exportar.pagina(WEB, {"total": {"patrimonio": 0, "serie": [], "hitos": []}, "productos": []})
         self.assertNotIn("cargador.js", html)
         self.assertIn("window.ESTATICO = true", html)
+        self.assertIn('n.hasAttribute("data-st")', html)               # estilos.js viaja dentro
+        self.assertNotIn('src="estilos.js"', html)
 
 
 if __name__ == "__main__":
