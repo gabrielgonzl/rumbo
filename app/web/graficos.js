@@ -16,9 +16,13 @@
   const oculto = () => global.OCULTAR_IMPORTES === true;
   const nfUnidades = { format: v => oculto() ? "•••" : nfNum.format(v) };
 
+  // Un valor que se redondea a cero se enseña como cero, sin signo: -0 y -0,004 no pueden salir «-0,00».
+  const cero = (v, dec) => Math.abs(v) < 0.5 / Math.pow(10, dec) ? 0 : v;
+
   function fmtEur(v, dec) {
     if (oculto()) return "•••";
     if (v === null || v === undefined || isNaN(v)) return "—";
+    v = cero(v, dec === 0 ? 0 : 2);
     return dec === 0 ? nfEur0.format(v) : nfEur.format(v);
   }
   function fmtEurCorto(v) {
@@ -32,16 +36,18 @@
   function fmtPct(v, dec) {
     if (v === null || v === undefined || isNaN(v)) return "—";
     const d = dec === undefined ? 2 : dec;
+    v = cero(v * 100, d) / 100;
     return (v * 100).toLocaleString("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d }) + " %";
   }
   function fmtPctSigno(v, dec) {
     if (v === null || v === undefined || isNaN(v)) return "—";
-    return (v >= 0 ? "+" : "") + fmtPct(v, dec);
+    const d = dec === undefined ? 2 : dec;
+    return (cero(v * 100, d) >= 0 ? "+" : "") + fmtPct(v, dec);
   }
   function fmtEurSigno(v) {
     if (oculto()) return "•••";
     if (v === null || v === undefined || isNaN(v)) return "—";
-    return (v >= 0 ? "+" : "") + fmtEur(v);
+    return (cero(v, 2) >= 0 ? "+" : "") + fmtEur(v);
   }
   function fmtFecha(iso) {
     if (!iso) return "—";
@@ -111,6 +117,56 @@
   function nombreCorto(n, max) {
     const base = String(n).split(" (")[0].trim();
     return base.length > max ? base.slice(0, max - 1).trimEnd() + "…" : base;
+  }
+
+  /* -------------------------------------------------- tabla alternativa
+     Cada gráfico lleva, bajo él, un «Ver los datos en tabla» (<details>) con los mismos valores y formatos.
+     Los constructores t*() son puros (devuelven {cab, filas, nota}) y tienen test; tablaAlt() solo pinta. */
+  const MAX_FILAS_TABLA = 24;
+  function indicesMuestra(n, max) {
+    if (n <= max) return Array.from({ length: n }, (_, i) => i);
+    const out = [];
+    for (let k = 0; k < max; k++) out.push(Math.round(k * (n - 1) / (max - 1)));
+    return out.filter((v, k) => k === 0 || v !== out[k - 1]);
+  }
+  function notaMuestra(n, mostradas) {
+    return mostradas < n ? `Se muestran ${mostradas} de ${n} fechas, repartidas por igual; la primera y la última siempre.` : "";
+  }
+  function tSerie(etiquetas, series, fV, totales, nombreEt) {
+    const idx = indicesMuestra(etiquetas.length, MAX_FILAS_TABLA);
+    const cab = [nombreEt || "Fecha"].concat(series.map(s => s.nombre), totales ? ["Total"] : []);
+    const filas = idx.map(i => [legible(etiquetas[i])].concat(series.map(s => s.valores[i] == null ? "—" : fV(s.valores[i])),
+      totales ? [fV(totales[i])] : []));
+    return { cab, filas, nota: notaMuestra(etiquetas.length, idx.length) };
+  }
+  function tReparto(datos) {
+    const total = datos.reduce((a, d) => a + d.valor, 0);
+    return { cab: ["Parte", "Valor", "Peso"], filas: datos.map(d => [d.nombre, fmtEur(d.valor), fmtPct(d.valor / total, 1)]), nota: "" };
+  }
+  function tPares(cabecera, cats, vals, f) {
+    return { cab: cabecera, filas: cats.map((c, i) => [String(c), vals[i] == null ? "—" : f(vals[i])]), nota: "" };
+  }
+  function tablaAlt(cont, t) {
+    const det = document.createElement("details");
+    det.className = "tablaAlt";
+    const sum = document.createElement("summary");
+    sum.textContent = "Ver los datos en tabla";
+    det.appendChild(sum);
+    const env = document.createElement("div");
+    env.className = "tablaEnv alto";
+    const tabla = document.createElement("table");
+    tabla.className = "dt";
+    const fila = (celdas, tag) => {
+      const tr = document.createElement("tr");
+      celdas.forEach((c, k) => { const td = document.createElement(k === 0 && tag === "td" ? "th" : tag); if (k === 0 && tag === "td") td.scope = "row"; td.textContent = c; tr.appendChild(td); });
+      return tr;
+    };
+    const cab = document.createElement("thead"); cab.appendChild(fila(t.cab, "th")); tabla.appendChild(cab);
+    const cuerpo = document.createElement("tbody"); t.filas.forEach(f => cuerpo.appendChild(fila(f, "td"))); tabla.appendChild(cuerpo);
+    env.appendChild(tabla);
+    det.appendChild(env);
+    if (t.nota) { const n = document.createElement("p"); n.className = "subt"; n.textContent = t.nota; det.appendChild(n); }
+    cont.appendChild(det);
   }
 
   function tituloDe(cont, cfg, porDefecto) {
@@ -279,6 +335,7 @@
     const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(fechas, series, fV, totales));
 
     const tt = creaTooltip(cont);
     function mover(ev) {
@@ -401,6 +458,7 @@
     const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(fechas, [{ nombre: cfg.nombreSerie || "Valor", valores: vals }].concat(cfg.overlay ? [{ nombre: cfg.overlay.nombre || "Referencia", valores: cfg.overlay.valores }] : []), cfg.formatoValor || fmtEur));
 
     const porFecha = {}; (cfg.eventos || []).forEach(e => { (porFecha[e.fecha] = porFecha[e.fecha] || []).push(e); });
     const tt = creaTooltip(cont);
@@ -483,6 +541,7 @@
     const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(cats.map(c => cfg.formatoCat ? cfg.formatoCat(c) : c), series, cfg.formatoValor || fmtEur, totales, "Mes"));
 
     const tt = creaTooltip(cont);
     function mover(ev) {
@@ -538,6 +597,7 @@
     centro.appendChild(txt(cx, cy + 20, cfg.valorCentro || fmtEurCorto(total), "donutValor", { "text-anchor": "middle" }));
     svg.appendChild(centro);
     cont.appendChild(svg);
+    tablaAlt(cont, tReparto(datos));
 
     const tt = creaTooltip(cont);
     arcos.forEach(({ arco, d }) => {
@@ -611,6 +671,7 @@
         dd[1].toLocaleString("es-ES", { maximumFractionDigits: 2 }) + " %", "barVal", { "text-anchor": "end" }));
     });
     cont.appendChild(svg);
+    tablaAlt(cont, tPares(["Concepto", "Peso"], datos.map(d => d[0]), datos.map(d => d[1]), v => v.toLocaleString("es-ES", { maximumFractionDigits: 2 }) + " %"));
   }
 
   /* ==================================================
@@ -662,6 +723,7 @@
       svg.appendChild(txt(cx, H - 10, cats[i], "ejeX", { "text-anchor": "middle" }));
     });
     cont.appendChild(svg);
+    tablaAlt(cont, tPares(["Categoría", "Valor"], cats, vals, cfg.formatoValor || (x => fmtPctSigno(x, 1))));
   }
 
   /* ==================================================
@@ -735,6 +797,7 @@
     const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(fechas, series, cfg.formatoValor || (v => v.toFixed(1))));
 
     const tt = creaTooltip(cont);
     function mover(ev) {
@@ -825,6 +888,7 @@
     const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(cats.map(c => cfg.formatoCat ? cfg.formatoCat(c) : c), series, cfg.formatoValor || fmtEur, null, "Mes"));
 
     const tt = creaTooltip(cont);
     function mover(ev) {
@@ -851,6 +915,7 @@
     fmtEur, fmtEurCorto, fmtPct, fmtPctSigno, fmtEurSigno, fmtFecha, fmtFechaCorta, fmtMes, nfNum: nfUnidades,
     areaApilada, lineaConEventos, barrasApiladas, donut, mini, escalaBonita, css,
     barrasHorizontales, barrasSimples, multiLinea, barrasAgrupadas,
-    descSerie, descReparto, separaEtiquetas, nombreCorto
+    descSerie, descReparto, separaEtiquetas, nombreCorto,
+    indicesMuestra, tSerie, tReparto, tPares
   };
 })(window);

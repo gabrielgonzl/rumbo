@@ -4,6 +4,14 @@
 
 ## Ronda 4 (sesión en la nube)
 
+**Tabla alternativa de datos (cierra V3):** cada gráfico (salvo el minigráfico decorativo) lleva bajo él «Ver los datos
+en tabla» (`<details>` cerrado), con los mismos valores y formatos; las series largas se reparten en 24 filas como mucho
+(primera y última siempre) y lo dice una nota. Constructores puros con test (`tSerie`, `tReparto`, `tPares`,
+`indicesMuestra`); un test estático exige una tabla por SVG. Comprobado en la app real a 1280 y 390 px y en la web
+exportada con «ocultar importes» (0 cantidades en euros dentro de las tablas, 0 `undefined`/`NaN`/`null`, sin desbordes).
+**Fallo encontrado de paso y corregido:** «TIR de tu capital» salía como «+-0,00 %» (el valor −0 pasaba `>= 0` y luego
+se escribía «-0,00»). `fmtPct`, `fmtPctSigno`, `fmtEur` y `fmtEurSigno` ya no enseñan signo a lo que se redondea a cero.
+
 **Endurecimiento de la CSP (después de la revisión):** `style-src 'self'`, sin `'unsafe-inline'`. Los atributos
 `style="…"` (≈100 en HTML y plantillas JS) pasan a `data-st="…"`; `app/web/estilos.js` los aplica con `el.style.cssText`
 (permitido por la CSP) a los nodos existentes y, con un `MutationObserver`, a los que entren después (89 puntos con
@@ -61,7 +69,7 @@ verificador: cotejo cifra a cifra con `/datos.js`, solapes de texto, 1920 px, ra
 - **V3 completada:** etiquetas directas al final de cada serie en las áreas apiladas y en las líneas múltiples
   (comparador, Monte Carlo): nombre corto, marca de color y reparto de alturas para que no se pisen
   (`separaEtiquetas`, `nombreCorto`, con test). Por debajo de 560 px no se pintan y manda la leyenda. La paleta ya tenía
-  dos tonos por tema desde V1 y la cuadrícula existía. **No hecho:** tabla alternativa de datos por gráfico.
+  dos tonos por tema desde V1 y la cuadrícula existía. (La tabla alternativa se hizo después; ver arriba.)
 - **V4 hecho (parcial):** en el Resumen, los seis KPI secundarios (aportado, plusvalía, TIR, ritmo, racha, peor caída)
   pasan bajo el gráfico y los filtros de producto bajan debajo de él como leyenda; las tres preguntas (cuánto tengo,
   cómo voy, qué miro) terminan a 576 px a 1280×800 y el gráfico empieza a 658 px (antes, a más de 1000 px). No cabe
@@ -72,7 +80,7 @@ verificador: cotejo cifra a cifra con `/datos.js`, solapes de texto, 1920 px, ra
   peor gráfico 4,23:1) y comprobación del texto renderizado en las 9 pestañas (`docs/auto/contraste_vivo.js`).
   Un fallo real corregido: filtros apagados con opacidad 0,42 (1,85:1). Informe en `docs/auto/contraste.md`.
   No se regeneraron capturas de referencia a 390/768/1920.
-- Estado: 149 tests de Python y 5 archivos de Node en verde.
+- Estado: 151 tests de Python y 5 archivos de Node en verde.
 
 ## Ronda 3 (14/10/2026, parcial: la sesión se reinició)
 

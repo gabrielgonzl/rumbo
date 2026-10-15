@@ -18,6 +18,12 @@ class GraficosAccesibles(unittest.TestCase):
         self.assertGreaterEqual(creados, 9)
         self.assertEqual(creados, etiquetados, "hay un SVG sin etiquetar")
 
+    def test_cada_grafico_con_datos_lleva_tabla_alternativa(self):
+        """Todos los gráficos (salvo el minigráfico decorativo) añaden «Ver los datos en tabla»."""
+        creados = len(re.findall(r'el\("svg"', self.js))
+        tablas = len(re.findall(r"(?<!function )\btablaAlt\(cont,", self.js))
+        self.assertEqual(creados - 1, tablas)                       # -1: mini() (sparkline) no la lleva
+
     def test_la_etiqueta_pone_role_y_aria_label(self):
         cuerpo = re.search(r"function etiquetar\(.*?\n  }\n", self.js, re.S).group(0)
         self.assertIn('"role", "img"', cuerpo)

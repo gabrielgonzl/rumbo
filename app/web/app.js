@@ -394,7 +394,7 @@
 
     if (estado.vista === "total") {
       G.lineaConEventos(cont, {
-        fechas, valores: corta(serieVista), color: G.css("--s1"), alto: 330,
+        fechas, valores: corta(serieVista), nombreSerie: "Patrimonio", color: G.css("--s1"), alto: 330,
         overlay: { nombre: "Aportado", valores: corta(m.serieAportado) },
       });
       if (hayDeuda) nota = neto ? "Neto: activos menos la deuda pendiente." : "Activos: no resta la deuda (ves el neto en la cifra de arriba).";
@@ -829,7 +829,7 @@
     const fechas = sim.total.map((_, i) =>
       new Date(base.getFullYear(), base.getMonth() + i, 1).toISOString().slice(0, 10));
     G.lineaConEventos($("#grafProy"), {
-      fechas, valores: sim.total.map(Math.round), color: G.css("--s3"), alto: 250,
+      fechas, valores: sim.total.map(Math.round), nombreSerie: "Patrimonio previsto", color: G.css("--s3"), alto: 250,
       overlay: { nombre: "Habré aportado", valores: sim.aportado.map(Math.round) },
     });
 
@@ -1632,7 +1632,7 @@
     G.lineaConEventos($("#grafFondo"), {
       fechas,
       valores: corta(verVL ? p.navSerie : p.serie),
-      color: color(p), alto: 280, eventos, desdeCero: !verVL,
+      nombreSerie: verVL ? "Valor liquidativo" : "Valor", color: color(p), alto: 280, eventos, desdeCero: !verVL,
       overlay: verVL ? null : ((p.serieAportado || []).some(v => v)
         ? { nombre: "Aportado", valores: corta(p.serieAportado) } : null),
       formatoY: verVL ? (v => G.fmtEur(v, v > 500 ? 0 : 2)) : null,

@@ -37,4 +37,39 @@ assert.deepEqual(G.separaEtiquetas([], 14, 0, 100), []);
 assert.equal(G.nombreCorto("Bueno (1 de cada 10 acaba por encima)", 17), "Bueno");
 assert.equal(G.nombreCorto("Un nombre larguísimo de serie", 12), "Un nombre l…");
 
+// 7. Tabla alternativa: muestreo (primera y última siempre, sin repetidos, tope) y formatos de las celdas.
+assert.deepEqual(G.indicesMuestra(3, 24), [0, 1, 2]);
+let ix = G.indicesMuestra(100, 24);
+assert.ok(ix.length <= 24 && ix[0] === 0 && ix[ix.length - 1] === 99, String(ix));
+assert.ok(ix.every((v, k) => k === 0 || v > ix[k - 1]));
+assert.deepEqual(G.indicesMuestra(0, 24), []);
+let tb = G.tSerie(["2026-01-05", "2026-02-05"], [{ nombre: "A", valores: [1, null] }, { nombre: "B", valores: [2, 3] }], v => v + " €", [3, 3]);
+assert.deepEqual(tb.cab, ["Fecha", "A", "B", "Total"]);
+assert.deepEqual(tb.filas[0], ["5 ene 2026", "1 €", "2 €", "3 €"]);
+assert.equal(tb.filas[1][1], "—");                       // hueco, no «null» ni «undefined»
+assert.equal(tb.nota, "");
+tb = G.tSerie(Array.from({ length: 100 }, (_, i) => "2026-01-" + String(1 + (i % 28)).padStart(2, "0")), [{ nombre: "A", valores: new Array(100).fill(1) }], v => String(v));
+assert.ok(tb.filas.length <= 24 && /de 100 fechas/.test(tb.nota), tb.nota);
+tb = G.tReparto([{ nombre: "RV", valor: 750 }, { nombre: "RF", valor: 250 }]);
+assert.deepEqual(tb.filas.map(f => f[2]), ["75,0 %", "25,0 %"]);
+tb = G.tPares(["Categoría", "Valor"], ["2025", "2026"], [0.1, null], v => v * 100 + " %");
+assert.deepEqual(tb.filas, [["2025", "10 %"], ["2026", "—"]]);
+// Con «ocultar importes» las celdas de dinero no enseñan cantidades.
+global.window.OCULTAR_IMPORTES = true;
+assert.equal(G.tReparto([{ nombre: "RV", valor: 750 }]).filas[0][1], "•••");
+global.window.OCULTAR_IMPORTES = false;
+
+// 8. Nada que se redondee a cero lleva signo: ni «-0,00 %» ni «+-0,00 %».
+assert.equal(G.fmtPctSigno(-0), "+0,00 %");
+assert.equal(G.fmtPctSigno(-0.00001), "+0,00 %");
+assert.equal(G.fmtPct(-0.00001, 2), "0,00 %");
+assert.equal(G.fmtPctSigno(0.1234, 1), "+12,3 %");
+assert.equal(G.fmtPctSigno(-0.0234, 1), "-2,3 %");
+assert.equal(G.fmtPctSigno(-0.00004, 1), "+0,0 %");
+assert.ok(!/-0,0/.test(G.fmtEur(-0.001)), G.fmtEur(-0.001));
+assert.ok(!/-0/.test(G.fmtEur(-0.4, 0)), G.fmtEur(-0.4, 0));
+assert.equal(G.fmtEurSigno(-0.001).startsWith("+"), true);
+assert.ok(G.fmtEurSigno(-12.5).startsWith("-"));
+assert.equal(G.fmtPct(null), "—");
+
 console.log("graficos.test.js: todo bien");
