@@ -21,7 +21,7 @@ TIPOS_MOV = {"compra": "Compra", "venta": "Venta", "dividendo": "Dividendo o cup
              "comision": "Comisión"}
 SOLO_SALDO = ("efectivo", "deuda")   # tipos que se siguen solo con saldos anotados
 
-VERSION_ACTUAL = 3   # v2: asignación objetivo y meta con fecha · v3: umbrales de las alertas (opcionales)
+VERSION_ACTUAL = 4   # v2: asignación objetivo y meta con fecha · v3: umbrales de las alertas · v4: carteras de fondos
 UMBRALES_POR_DEFECTO = umbrales_mod.POR_DEFECTO
 
 CARTERA_VACIA = {
@@ -32,6 +32,7 @@ CARTERA_VACIA = {
     "objetivo": {"activo": True, "importe": 100000, "etiqueta": "Próximo objetivo"},
     "asignacion": {"objetivos": {}},
     "alertas": {"umbrales": dict(UMBRALES_POR_DEFECTO)},
+    "carteras": [],
 }
 
 
@@ -58,6 +59,10 @@ def migra(cfg):
     if v < 3:
         cfg.setdefault("alertas", {"umbrales": dict(UMBRALES_POR_DEFECTO)})
         cfg["version"] = 3
+        cambio = True
+    if v < 4:
+        cfg.setdefault("carteras", [])
+        cfg["version"] = 4
         cambio = True
     return cambio
 
@@ -154,6 +159,105 @@ def siguiente_id(lista, prefijo):
     return f"{prefijo}{max(nums, default=0) + 1}"
 
 
+# ---------------------------------------------------------------- carteras de fondos
+
+def cartera(cfg, cid):
+    return next((c for c in cfg.get("carteras", []) if c.get("id") == cid), None)
+
+
+def _exige_libre(cfg, cid, pid):
+    """Un fondo no sale de una cartera que respalda un préstamo vivo: la garantía bajaría (y se desbloquearía su
+    venta) sin que nadie lo note. Hay que cambiar antes la garantía del préstamo."""
+    vivos = [p for p in cfg.get("pignoraciones", []) if cid in (p.get("carteraIds") or []) and p.get("estado") != "liquidada"]
+    if vivos:
+        c, f = cartera(cfg, cid) or {}, producto(cfg, pid) or {}
+        raise ErrorValidacion([
+            f"«{f.get('corto') or f.get('nombre') or pid}» forma parte de la cartera «{c.get('nombre', cid)}», que es garantía del "
+            f"préstamo «{vivos[0].get('nombre')}». Cambia antes la garantía del préstamo (Datos → Pignoraciones)."])
+
+
+def guarda_cartera(cfg, datos):
+    """Crea o edita una cartera de fondos. `productos` (opcional) es la lista COMPLETA de fondos que la forman:
+    los que no estén se sueltan y los que estén salen de la cartera que tuvieran. Devuelve la cartera."""
+    errores = []
+    cid = datos.get("id") or None
+    existente = cartera(cfg, cid) if cid else None
+    if cid and not existente:
+        errores.append("Esa cartera ya no existe.")
+    nombre = texto(datos.get("nombre"), 1000)
+    if not nombre:
+        errores.append("Ponle un nombre a la cartera (por ejemplo, «Cartera Ejemplo»).")
+    elif len(nombre) > 80:
+        errores.append("El nombre de la cartera no puede pasar de 80 caracteres.")
+    elif any(str(c.get("nombre", "")).lower() == nombre.lower() for c in cfg.get("carteras", []) if c.get("id") != cid):
+        errores.append(f"Ya tienes una cartera llamada «{nombre}».")
+    ltv = numero(datos.get("ltvMax"), "el límite de préstamo sobre garantía de la cartera", errores,
+                 obligatorio=False, mayor_que=0)
+    if ltv is not None and ltv > 100:
+        errores.append("El límite de préstamo sobre garantía va de 0 a 100 %.")
+    ids = None
+    if "productos" in datos:
+        ids = [x for x in (datos.get("productos") or []) if isinstance(x, str)]
+        desconocidos = [x for x in ids if not producto(cfg, x)]
+        if desconocidos:
+            errores.append("Hay fondos que ya no existen: " + ", ".join(desconocidos))
+    if errores:
+        raise ErrorValidacion(errores)
+
+    if ids is not None:
+        for p in cfg["productos"]:
+            sale = p.get("carteraId") == cid and p["id"] not in ids                       # sale de esta cartera
+            se_mueve = p["id"] in ids and p.get("carteraId") not in (None, cid)            # sale de otra para entrar aquí
+            if sale and existente:
+                _exige_libre(cfg, cid, p["id"])
+            if se_mueve:
+                _exige_libre(cfg, p["carteraId"], p["id"])
+    carteras = cfg.setdefault("carteras", [])
+    item = existente
+    if item is None:
+        item = {"id": siguiente_id(carteras, "c")}
+        carteras.append(item)
+    item["nombre"] = nombre
+    for k, v in (("entidad", texto(datos.get("entidad"), 80)), ("ltvMax", ltv)):
+        if v in ("", None):
+            item.pop(k, None)
+        else:
+            item[k] = v
+    if ids is not None:
+        for p in cfg["productos"]:
+            if p["id"] in ids:
+                p["carteraId"] = item["id"]
+            elif p.get("carteraId") == item["id"]:
+                p.pop("carteraId", None)
+    return dict(item)
+
+
+def borra_cartera(cfg, cid):
+    """Borra la cartera: sus fondos quedan sueltos y se quita de la garantía de los préstamos. Si un préstamo
+    vivo se quedara sin garantía, no se borra."""
+    c = cartera(cfg, cid)
+    if not c:
+        raise ErrorValidacion(["Esa cartera ya no existe."])
+    for p in cfg.get("pignoraciones", []):
+        if cid in (p.get("carteraIds") or []) and p.get("estado") != "liquidada":
+            resto = [x for x in p["carteraIds"] if x != cid]
+            if not resto and not p.get("activos"):
+                raise ErrorValidacion([
+                    f"No puedo borrar «{c['nombre']}»: el préstamo «{p.get('nombre')}» solo tiene esa cartera como "
+                    "garantía. Cambia su garantía o liquídalo primero."])
+    cfg["carteras"] = [x for x in cfg["carteras"] if x.get("id") != cid]
+    for pr in cfg["productos"]:
+        if pr.get("carteraId") == cid:
+            pr.pop("carteraId", None)
+    for p in cfg.get("pignoraciones", []):
+        if cid in (p.get("carteraIds") or []):
+            resto = [x for x in p["carteraIds"] if x != cid]
+            if resto:
+                p["carteraIds"] = resto
+            else:
+                p.pop("carteraIds", None)
+
+
 def sanea_copia(cfg):
     """Limpia una cartera que llega de fuera (copia subida o recuperada): sin < ni > en ningún texto y con
     `slot` siempre entero 1-12. Una copia ajena no pasa por `texto()` y sus nombres acaban en HTML."""
@@ -166,11 +270,47 @@ def sanea_copia(cfg):
             return {k: limpia(x) for k, x in v.items()}
         return v
     cfg = limpia(cfg)
-    for p in cfg.get("productos", []):
+
+    def lista(clave):                        # una copia ajena puede traer null, un número… donde esperamos una lista
+        return cfg[clave] if isinstance(cfg.get(clave), list) else []
+
+    ids_cartera = set()
+    if "carteras" in cfg:
+        limpias = []
+        for c in lista("carteras"):
+            if not isinstance(c, dict) or not isinstance(c.get("id"), str) or not c["id"] or c["id"] in ids_cartera:
+                continue
+            ids_cartera.add(c["id"])
+            if not (isinstance(c.get("nombre"), str) and c["nombre"].strip()):
+                c["nombre"] = c["id"]
+            if not isinstance(c.get("entidad"), str):
+                c.pop("entidad", None)
+            v = c.get("ltvMax")
+            try:
+                x = None if isinstance(v, bool) else float(v.replace(",", ".")) if isinstance(v, str) else float(v)
+            except (TypeError, ValueError, OverflowError):
+                x = None
+            if x is not None and math.isfinite(x) and 0 < x <= 100:
+                c["ltvMax"] = x
+            else:
+                c.pop("ltvMax", None)
+            limpias.append(c)
+        cfg["carteras"] = limpias
+    for p in lista("productos"):
+        if isinstance(p, dict) and "carteraId" in p and not (isinstance(p["carteraId"], str) and p["carteraId"] in ids_cartera):
+            p.pop("carteraId")
+    for pg in lista("pignoraciones"):
+        if isinstance(pg, dict) and "carteraIds" in pg:
+            validas = [x for x in pg["carteraIds"] if isinstance(x, str) and x in ids_cartera] if isinstance(pg["carteraIds"], list) else []
+            if validas:
+                pg["carteraIds"] = validas
+            else:
+                pg.pop("carteraIds")
+    for p in lista("productos"):
         if isinstance(p, dict) and "slot" in p:
             try:
                 n = int(p["slot"])
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):      # inf, nan, un entero enorme, una lista…
                 n = 1
             p["slot"] = n if 1 <= n <= 12 else 1
     return cfg
@@ -228,8 +368,13 @@ def guarda_producto(cfg, datos):
     if fuente == "manual":
         nuevo.update(codigo="", respaldo="", respaldoMoneda="")
     nuevo["corto"] = nuevo["corto"] or nuevo["nombre"][:24]
+    if "carteraId" in datos:        # sin la clave, la cartera del producto no se toca (p. ej. al importar)
+        cid = texto(datos.get("carteraId"), 40)
+        nuevo["carteraId"] = cid if cid and cartera(cfg, cid) else ""
 
     existente = producto(cfg, datos.get("id")) if datos.get("id") else None
+    if existente and "carteraId" in nuevo and existente.get("carteraId") and existente["carteraId"] != (nuevo["carteraId"] or None):
+        _exige_libre(cfg, existente["carteraId"], existente["id"])
     if existente:
         cambio = (existente.get("fuente"), existente.get("codigo")) != (fuente, nuevo["codigo"])
         destino = existente
@@ -265,6 +410,8 @@ def borra_producto(cfg, pid):
     """Borra el producto con sus movimientos y valores anotados."""
     if not producto(cfg, pid):
         raise ErrorValidacion(["Ese producto ya no existe."])
+    if producto(cfg, pid).get("carteraId"):
+        _exige_libre(cfg, producto(cfg, pid)["carteraId"], pid)
     cfg["productos"] = [p for p in cfg["productos"] if p["id"] != pid]
     cfg["movimientos"] = [m for m in cfg.get("movimientos", []) if m.get("producto") != pid]
     cfg["valoraciones"] = [v for v in cfg.get("valoraciones", []) if v.get("producto") != pid]
@@ -319,8 +466,9 @@ def guarda_movimiento(cfg, datos):
     if not errores and tipo == "venta":
         bloquea = pignoracion.bloquea_venta(cfg, p["id"], f)
         if bloquea:
-            errores.append(f"«{p.get('corto') or p['nombre']}» está pignorado en «{bloquea}»: no se puede vender "
-                           "hasta liquidar la pignoración (hazlo en Mis datos → Pignoraciones).")
+            errores.append(f"«{p.get('corto') or p['nombre']}» está pignorado en «{bloquea}»: no se puede vender ni traspasar "
+                           "hasta liquidar la pignoración (hazlo en Mis datos → Pignoraciones). En Rumbo un traspaso se anota "
+                           "como una venta y una compra.")
     if errores:
         raise ErrorValidacion(errores)
 
@@ -433,10 +581,21 @@ def guarda_pignoracion(cfg, datos):
         errores.append("Ponle un nombre a la pignoración (por ejemplo, «Préstamo con mi cartera»).")
     activos = [a for a in (datos.get("activos") or []) if isinstance(a, str)]
     desconocidos = [a for a in activos if not producto(cfg, a)]
-    if not activos:
-        errores.append("Marca qué activos has pignorado.")
+    carteras_ids = []
+    for c in (datos.get("carteraIds") or []):
+        if isinstance(c, str) and c not in carteras_ids:
+            carteras_ids.append(c)
+    if not activos and not carteras_ids:
+        errores.append("Marca qué activos o carteras has pignorado.")
     if desconocidos:
         errores.append("Hay activos que ya no existen: " + ", ".join(desconocidos))
+    for c in carteras_ids:
+        cartera_c = cartera(cfg, c)
+        if not cartera_c:
+            errores.append(f"Hay carteras que ya no existen: {c}")
+        elif not any(p.get("carteraId") == c for p in cfg.get("productos", [])):
+            errores.append(f"La cartera «{cartera_c['nombre']}» está sin fondos: no puede ser garantía de un préstamo. "
+                           "Añade fondos a la cartera en Datos → Carteras.")
     principal = numero(datos.get("principal"), "el dinero recibido", errores, mayor_que=0)
     f = _fecha_libre(datos.get("fecha"), "la fecha en que recibiste el dinero", errores)
     interes = numero(datos.get("interes"), "el interés anual", errores, minimo=0)
@@ -462,6 +621,7 @@ def guarda_pignoracion(cfg, datos):
         raise ErrorValidacion(errores)
 
     item = {"nombre": nombre, "entidad": texto(datos.get("entidad")), "activos": activos,
+            **({"carteraIds": carteras_ids} if carteras_ids else {}),
             "principal": round(principal, 2), "fecha": f, "interes": interes,
             "comisionApertura": round(apertura or 0, 2), "comisionCancelacion": cancel or 0,
             "nota": texto(datos.get("nota"), 400)}

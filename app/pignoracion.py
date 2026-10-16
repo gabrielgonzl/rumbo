@@ -12,6 +12,7 @@ anotar saldos a mano.
 """
 
 import calendar
+import math
 import datetime as dt
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -144,6 +145,14 @@ def resumen(cfg, valores, hoy):
         if _fecha(p["fecha"]) > hoy:
             continue
         e = estado(p, hoy)
+        # La garantía y el LTV se resuelven aquí (estado() no conoce la cartera completa).
+        e["activosSueltos"] = list(p.get("activos") or [])
+        e["activos"] = activos_efectivos(cfg, p)
+        e["ltvMax"] = ltv_efectivo(cfg, p)
+        e["ltvSugerido"] = ltv_sugerido(cfg, p)
+        e["carteraIds"] = list(p.get("carteraIds") or [])
+        nombres_c = {c.get("id"): c.get("nombre") for c in cfg.get("carteras", [])}
+        e["carterasDetalle"] = [{"id": i, "nombre": nombres_c[i]} for i in e["carteraIds"] if i in nombres_c]
         garantia = round(sum(valores.get(a, 0.0) for a in e["activos"]), 2)
         deuda = e["saldo"] + e["devengado"]
         e["garantia"] = garantia
@@ -264,12 +273,54 @@ def principal_invertido(cfg, hoy):
     return round(total, 2)
 
 
+def activos_efectivos(cfg, p):
+    """Fondos que respaldan el préstamo: los sueltos y los de las carteras en garantía, sin repetir.
+    Se calcula al leer: un fondo añadido después a la cartera pasa a ser garantía."""
+    de_cartera_ids = set(p.get("carteraIds") or [])
+    de_cartera = [pr["id"] for pr in cfg.get("productos", []) if pr.get("carteraId") in de_cartera_ids]
+    salida = []
+    for a in list(p.get("activos") or []) + de_cartera:
+        if a not in salida:
+            salida.append(a)
+    return salida
+
+
+def _ltv_valido(v):
+    """¿Es un LTV usable? Número finito (no bool). Un valor corrupto (archivo editado a mano) cuenta como «sin indicar»."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(v)) and float(v) > 0
+    except OverflowError:
+        return False
+
+
+def ltv_sugerido(cfg, p):
+    """LTV de las carteras en garantía, si la garantía son SOLO carteras y todas tienen el mismo; si no, None."""
+    ids = p.get("carteraIds") or []
+    if p.get("activos") or not ids:
+        return None
+    por_id = {c.get("id"): c.get("ltvMax") for c in cfg.get("carteras", [])}
+    valores = [por_id.get(i) for i in ids]
+    # Un ltvMax que no sea un número (archivo editado a mano) cuenta como «sin indicar»: no tumba el cálculo.
+    if not all(_ltv_valido(v) for v in valores) or len(set(valores)) != 1:
+        return None
+    return float(valores[0])
+
+
+def ltv_efectivo(cfg, p):
+    """LTV máximo con el que se mide el préstamo: el escrito en él; si no, el sugerido por sus carteras; si no, None."""
+    if _ltv_valido(p.get("ltvMax")):
+        return float(p["ltvMax"])
+    return ltv_sugerido(cfg, p)
+
+
 def marcas(cfg, hoy):
     """{id de producto: [{id, nombre}]} de los activos pignorados ahora mismo."""
     m = {}
     for p in cfg.get("pignoraciones", []):
         if vigente(p, hoy):
-            for a in p.get("activos") or []:
+            for a in activos_efectivos(cfg, p):
                 m.setdefault(a, []).append({"id": p["id"], "nombre": p.get("nombre")})
     return m
 
@@ -278,7 +329,7 @@ def bloquea_venta(cfg, producto, fecha):
     """Nombre de la pignoración que impide vender 'producto' en 'fecha', o None."""
     f = _fecha(fecha)
     for p in cfg.get("pignoraciones", []):
-        if producto in (p.get("activos") or []) and vigente(p, f):
+        if producto in activos_efectivos(cfg, p) and vigente(p, f):
             return p.get("nombre") or "una pignoración"
     return None
 

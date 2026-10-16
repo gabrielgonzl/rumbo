@@ -4,6 +4,77 @@
 
 ## Ronda 4 (sesión en la nube)
 
+**Revisión de las cifras por cartera, del texto «ni traspasar» y de la robustez:** seguridad-privacidad **VETÓ** una vez más (el propio
+informe escribía el término que se buscaba y una cifra real de una cartera; corregido en `f7c8c92`) y el verificador APRUEBA CON
+RESERVAS (TIR y rentabilidad por cartera contra un cálculo independiente en Python, 0 desbordes, 0 errores, exportación sin importes
+correcta, venta fechada antes de la pignoración permitida y posterior rechazada con el texto nuevo). Resuelto con test antes de código:
+- `motor.xirr` devolvía una TIR falsa (≈ +450 %) si todos los flujos caían el mismo día; ahora `None`.
+- `carteras.resumen` salta carteras sin id o que no son dict, no lanza con aportado/valor/flujos mal formados y no da −100 % si a un
+  fondo le falta el valor.
+- Un fondo vendido del todo ya no hace perder la TIR de su cartera (cuenta como aportado 0; sus compras y cobros siguen en los flujos).
+- `sanea_copia` ya no lanza con un `slot` infinito o enorme (mismo tipo de fallo que el `ltvMax`).
+- La línea de cartera en Posiciones ya no suma la plusvalía de solo una parte de los fondos: todos o ninguno, como la rentabilidad.
+- **Cerrada (F2, rebalanceo en Fiscalidad):** el usuario confirma que Fiscalidad ya refleja todo lo suyo, así que no se toca la lógica fiscal. (Antes estaba pendiente porque) no se toca la lógica fiscal sin saber cómo representan los datos del usuario el
+  rebalanceo (los lotes importados ya traen su fecha fiscal, así que puede no haber ventas falsas). Se necesita que el usuario mire
+  Fiscalidad y diga si aparece alguna venta que sea un rebalanceo o un traspaso.
+
+**Rentabilidad real por cartera (F3):** `app/carteras.py` (función pura) publica en `datos.carteras` el número de fondos, el valor, el
+aportado, la plusvalía, la rentabilidad y la **TIR combinada** (la de todos los flujos de los fondos juntos más el valor de hoy,
+no la media de las TIR). Regla de honestidad: el valor siempre se suma; el resto solo se da si todos los fondos tienen aportado
+(y flujos, para la TIR): si a uno le falta, es `null`. En la web sin importes se escalan `valor`, `aportado` y `plusvalia` y
+los porcentajes quedan. La línea de la cartera en Posiciones enseña esa TIR solo cuando están a la vista todos sus fondos (con
+un filtro activo pone «—»). Comprobado en la app real: la cifra de la línea coincide con la del servidor.
+Un test mío salió intermitente (la exportación escala con un factor aleatorio redondeado a céntimos): tolerancia ajustada y
+suite ejecutada 5 veces seguidas en verde.
+
+**Pignoración: «no se puede vender ni traspasar» (petición del usuario):** un activo pignorado tampoco se puede traspasar hasta
+liquidar la pignoración. En Rumbo un traspaso se anota como venta + compra, así que ya quedaba bloqueado por el lado de la venta
+(también si el activo está en una cartera pignorada); lo que faltaba era decirlo. Ahora el rechazo, el candado 🔒, la insignia «En
+garantía», la tarjeta del préstamo, el texto de Pignoraciones, el README y el glosario dicen «vender ni traspasar», y el rechazo
+explica cómo se anota un traspaso. Tests en `TextosDeBloqueo`; comprobado en la app real.
+
+**Carteras de fondos (nueva función pedida por el usuario; spec y plan en `docs/superpowers/`):** agrupar los fondos que una
+entidad gestiona juntos y poder pignorarlos como cartera, con un LTV propio. Implementado de forma autónoma por la noche, con TDD
+en 8 tareas (ledger local, commits pequeños):
+- **Datos (v4):** `carteras` como entidad (nombre ≤ 80 y único, entidad, `ltvMax` opcional en (0, 100]), `carteraId` en los
+  productos, migración aditiva e idempotente, API `POST /api/carteras` y `DELETE /api/carteras/<id>` (heredan el control de
+  origen). Borrar una cartera suelta sus fondos y la quita de los préstamos; se rechaza si dejaría un préstamo vivo sin garantía.
+- **Pignoración:** la garantía puede mezclar carteras y fondos sueltos y se calcula al leer (`activos_efectivos`), así que un
+  fondo añadido después a la cartera pasa a ser garantía y queda bloqueado. LTV efectivo: el del préstamo si lo escribes; si no, el de
+  las carteras cuando la garantía son solo carteras con el mismo valor; si no, «sin indicar» (nunca media). La deuda y los
+  intereses no cambian.
+- **Pantallas:** Posiciones → «Cartera» (línea plegable por cartera, plegada por defecto, recuerda el estado, teclado y
+  `aria-expanded`, la búsqueda despliega las que coinciden); Datos → Carteras; desplegable «Cartera» en la ficha del producto;
+  bloque «Carteras en garantía» en el préstamo con el LTV sugerido; tarjeta del préstamo con «Cartera Ejemplo + N fondos sueltos».
+- **Comprobado en la app real:** crear/editar/borrar carteras, asignar desde la ficha, pignorar la cartera (LTV 50 % sugerido y
+  aplicado, zonas 37,5/45 %, 🔒 en los tres fondos, venta de un fondo bloqueada), nombre hostil sin etiquetas; exportación con y sin
+  importes abierta con `file://` (sin errores, `•••` con ocultar). 24 de 27 capturas idénticas píxel a píxel con el commit
+  anterior; las 3 distintas son la pestaña Datos (botón «Carteras» nuevo). Carga lenta del servidor sin conexión en los
+  guardados (reintenta precios): es del entorno, no de la función.
+- **Revisión de los agentes sobre las carteras:** seguridad-privacidad **VETÓ** (frases y ejemplos que identificaban el producto y
+  la entidad reales del usuario en un repositorio público) y el verificador APRUEBA CON RESERVAS (0 desbordes, 0 errores de consola, 0
+  violaciones de CSP, cifras de un préstamo existente idénticas a las del commit anterior, web exportada sin importes con ocultar).
+  Resuelto en una pasada: (1) **privacidad:** todos los ejemplos usan «Cartera Ejemplo» / «Entidad Ejemplo» y no hay frases sobre lo que
+  tiene el usuario; (2) **hueco funcional:** un fondo ya no puede salir (ni moverse, ni borrarse) de una cartera que respalda un
+  préstamo vivo — antes la garantía bajaba y la venta se desbloqueaba sin aviso —, con mensaje que dice qué préstamo hay que cambiar
+  antes; (3) copias ajenas: `sanea_copia` normaliza `carteras`, `carteraId` y `carteraIds`, y un `ltvMax` corrupto ya no tumba el
+  cálculo; (4) nombres largos de cartera se parten (a 1280 px la tabla vuelve a caber); (5) la búsqueda de Posiciones también
+  encuentra por nombre o entidad de la cartera; (6) `ltvMax` escapado por coherencia.
+- **Segunda pasada de seguridad-privacidad:** APRUEBA CON RESERVAS y **levanta el veto** para la punta de la rama (la búsqueda del identificador retirado sigue vacía; sin
+  datos personales en app/, tests/, docs/, README ni demo/). Reservas bajas resueltas con test: `sanea_copia` ya no lanza con tipos raros
+  (`carteraId` lista/dict, `ltvMax` enorme, `pignoraciones: null`), `ltv_sugerido`/`ltv_efectivo` descartan NaN, infinito y enteros enormes, y el
+  placeholder de entidad de la pignoración es genérico. Sin cambio: `borrar_cartera` de una cartera que comparte préstamo con otra
+  baja la garantía por acción explícita del usuario (anotado como menor).
+- **Historial reescrito (orden expresa del usuario):** los 19 commits de las carteras se compactaron en uno para quitar de la
+  historia frases que identificaban lo que el usuario tiene contratado. La rama se subió con `--force-with-lease`. Los commits antiguos
+  pueden seguir siendo alcanzables por su identificador en GitHub (la línea de tiempo del PR y la red de forks) hasta que GitHub los
+  elimine; borrarlos del todo requiere pedírselo a GitHub.
+- **Estado:** 231 tests de Python y 7 archivos de Node en verde.
+- **Fuera de esta versión:** el rebalanceo interno sigue viéndose como ventas y compras en Fiscalidad (F2) y aportado/rentabilidad
+  reales por cartera (F3). El LTV real lo da el contrato del usuario: el de la cartera es solo una sugerencia.
+- **Ambigüedad conocida:** en la interfaz «tu cartera» a secas significa todo el patrimonio; el glosario pide escribir «cartera de
+  fondos» para el grupo.
+
 **Revisión de los dos últimos cambios (CSP sin estilos en línea y tablas alternativas):** seguridad-privacidad y
 verificador APRUEBAN CON RESERVAS (0 regresiones: 9 pestañas × 1280/390 × claro/oscuro, web exportada con y sin
 importes, cero con signo probado con 2 millones de valores, 24 filas máximo en tablas con 1111 fechas, teclado en

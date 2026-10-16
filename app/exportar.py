@@ -110,7 +110,7 @@ def pagina(web, datos, ocultar=False, titulo="Mi patrimonio"):
     trozos = [previo + "window.DATOS = " + json.dumps(datos, ensure_ascii=False, separators=(",", ":")) + ";"]
     html = re.sub(r'<script src="estilos\.js"></script>\s*', "", html)       # va dentro, junto al resto
     trozos.insert(0, lee("estilos.js"))
-    trozos += [lee(n) for n in ("canal.js", "graficos.js", "proyeccion.js", "metricas.js", "alertas.js", "asignacion.js", "montecarlo.js", "app.js")]
+    trozos += [lee(n) for n in ("canal.js", "graficos.js", "proyeccion.js", "metricas.js", "alertas.js", "carteras.js", "asignacion.js", "montecarlo.js", "app.js")]
     scripts = "\n".join("<script>\n" + t.replace("</script>", "<\\/script>") + "\n</script>" for t in trozos)
     html, n = re.subn(r'<script src="cargador\.js"></script>', lambda m: scripts, html)
     if not n:

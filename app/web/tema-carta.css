@@ -204,3 +204,11 @@ p.vacio:has(> .rosa){display:flex;flex-direction:column;align-items:center;gap:8
 .tablaAlt summary:focus-visible{outline:2px solid var(--mar);outline-offset:2px}
 .tablaAlt .tablaEnv{max-height:260px;margin-top:6px}
 .tablaAlt table.dt th[scope="row"]{text-align:left;font-weight:500}
+
+/* Carteras de fondos en Posiciones: línea plegable por cartera, con los fondos sangrados debajo. */
+.tabPos tr.grupo.cartera{cursor:pointer}
+.tabPos tr.grupo.cartera:hover td{background:color-mix(in srgb,var(--tinta) 4%,transparent)}
+.tabPos tr.grupo.cartera:focus-visible{outline:2px solid var(--mar);outline-offset:-2px}
+.tabPos tr.grupo .chev{display:inline-block;width:1.1em;color:var(--tinta2)}
+.tabPos tr[data-hija] td.nom{padding-left:2.1em}
+.tabPos tr.grupo.cartera td:first-child{white-space:normal;overflow-wrap:anywhere}   /* un nombre largo se parte en vez de ensanchar la tabla */

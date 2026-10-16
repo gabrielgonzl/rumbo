@@ -280,9 +280,10 @@ def api_buscar():
 GUARDAR = {"productos": almacen.guarda_producto, "movimientos": almacen.guarda_movimiento,
            "valoraciones": almacen.guarda_valoracion, "pignoraciones": almacen.guarda_pignoracion,
            "asignacion": almacen.guarda_asignacion, "meta": almacen.guarda_meta,
-           "alertas": almacen.guarda_alertas}
+           "alertas": almacen.guarda_alertas, "carteras": almacen.guarda_cartera}
 BORRAR = {"productos": almacen.borra_producto, "movimientos": almacen.borra_movimiento,
-          "valoraciones": almacen.borra_valoracion, "pignoraciones": almacen.borra_pignoracion}
+          "valoraciones": almacen.borra_valoracion, "pignoraciones": almacen.borra_pignoracion,
+          "carteras": almacen.borra_cartera}
 AVISO_DEMO = ("Estás viendo la cartera de ejemplo. Pulsa «Empezar con mis datos» "
               "para crear la tuya y poder guardar cambios.")
 

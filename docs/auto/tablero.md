@@ -45,6 +45,14 @@ Prioridad: A (ahora) · B (después) · C (cuando sobre tiempo). Mantiene el orq
 | S4 | Medidor de LTV sin bandas de zona (sin degradado): recuperar zonas con marcas discretas | B | hecho | disenador-ui | Zonas legibles en ambos temas |
 | S5 | Pie repite en parte el aviso legal («no se garantiza la exactitud») | C | hecho | redactor | Una sola mención |
 
+## Carteras de fondos (petición del usuario)
+
+| ID | Tarjeta | Prio | Estado | Dueño | Criterio de aceptación |
+|---|---|---|---|---|---|
+| F1 | Carteras de fondos: entidad propia (v4), línea plegable en Posiciones y pignoración sobre cartera con LTV sugerido | A | hecho (pendiente de revisión de agentes y de tu visto bueno) | claude | Spec y plan en `docs/superpowers/`; tests; comprobado en la app real |
+| F2 | Que el rebalanceo interno de una cartera no cuente como venta en Fiscalidad | B | hecho sin cambios (el usuario confirma que Fiscalidad refleja todo lo suyo: no hay ventas falsas por rebalanceo; se reabre si aparece alguna) | ingeniero-calculo | Sin ganancias falsas al rebalancear |
+| F3 | Aportado y rentabilidad reales por cartera | B | hecho (valor, aportado, plusvalía, rentabilidad y TIR combinada por cartera en `datos.carteras`; la TIR se ve en Posiciones) | ingeniero-calculo | Cifras a nivel de cartera, con test |
+
 ## Nube
 
 | ID | Tarjeta | Prio | Estado | Dueño | Criterio de aceptación |

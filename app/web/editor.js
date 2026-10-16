@@ -167,7 +167,7 @@
       <div id="edAvisos" class="avisos"></div><div id="edCuerpo"></div>`;
     cont.innerHTML = html;
 
-    const vistas = [["productos", "Productos"], ["movimientos", "Movimientos"], ["saldos", "Saldos y valores"], ["pignoraciones", "Pignoraciones"], ["alertas", "Alertas"], ["importar", "Importar"], ["copias", "Copias y web"]];
+    const vistas = [["productos", "Productos"], ["movimientos", "Movimientos"], ["saldos", "Saldos y valores"], ["pignoraciones", "Pignoraciones"], ["carteras", "Carteras"], ["alertas", "Alertas"], ["importar", "Importar"], ["copias", "Copias y web"]];
     const seg = $("#edVistas");
     vistas.forEach(([id, et]) => {
       const b = document.createElement("button");
@@ -177,21 +177,82 @@
       seg.appendChild(b);
     });
     $("#edCuerpo").innerHTML = ({ productos: vistaProductos, movimientos: vistaMovimientos, saldos: vistaSaldos,
-      pignoraciones: vistaPignoraciones, alertas: vistaAlertas, importar: vistaImportar, copias: vistaCopias }[E.vista] || vistaProductos)();
+      pignoraciones: vistaPignoraciones, carteras: vistaCarteras, alertas: vistaAlertas, importar: vistaImportar, copias: vistaCopias }[E.vista] || vistaProductos)();
     if (E.vista === "importar" || E.vista === "copias") conectaImportar();
     const filtro = $("#edFiltro");
     if (filtro) filtro.onchange = e => { E.filtro = e.target.value; pinta(); };
   }
 
 
+  /* ---------------------------------------------- carteras de fondos */
+  const CAR = () => E.cfg.carteras || [];
+  const fondosDe = c => E.cfg.productos.filter(p => p.carteraId === c.id);
+
+  function vistaCarteras() {
+    const filas = CAR().map(c => `<tr><td>${esc(c.nombre)}${c.entidad ? ` <small class="idp">${esc(c.entidad)}</small>` : ""}</td>
+        <td>${fondosDe(c).map(p => esc(nombre(p))).join(", ") || "—"}</td><td>${fondosDe(c).length}</td>
+        <td>${c.ltvMax != null ? num(c.ltvMax, 2) + " %" : "—"}</td>
+        <td class="acc"><button data-acc="editarCartera" data-id="${esc(c.id)}">Editar</button>
+          <button data-acc="borrarCartera" data-id="${esc(c.id)}">Borrar</button></td></tr>`).join("");
+    return `<section class="tarjeta"><header><h2>Carteras</h2>
+        <span class="subt">Agrupa los fondos que una entidad gestiona juntos (por ejemplo, una cartera indexada de tu broker).
+          En Posiciones se ven como una sola línea y puedes pignorar la cartera entera.</span><span class="sp"></span>
+        <button class="btn prim" data-acc="nuevaCartera">+ Añadir cartera</button></header>
+      ${filas ? `<div class="tablaEnv"><table class="dt"><thead><tr><th>Cartera</th><th>Fondos</th><th>Nº</th>
+        <th>LTV máx.</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>`
+        : `<p class="subt">Todavía no tienes ninguna. Crea una y marca los fondos que la forman.</p>`}</section>`;
+  }
+
+  function formCartera(x) {
+    const nuevo = !x;
+    const candidatos = E.cfg.productos.filter(p => !soloSaldo(p));
+    const nombreCartera = id => { const c = CAR().find(y => y.id === id); return c ? c.nombre : ""; };
+    const f = abreModal(`${nuevo ? "Añadir" : "Editar"} cartera`, `
+      <div class="rejilla">
+        ${campo("Nombre", '<input name="nombre" placeholder="Cartera Ejemplo">', "", "ancho")}
+        ${campo("Entidad", '<input name="entidad" placeholder="Tu broker o banco">')}
+        ${campo("Límite de préstamo sobre garantía (LTV máx.)", '<div class="conSufijo"><input name="ltvMax" inputmode="decimal" placeholder="opcional"><span>%</span></div>',
+          "opcional: se propone al pignorar esta cartera; el dato bueno es el de tu contrato")}
+      </div>
+      ${seccion("Fondos de la cartera")}
+      <div class="rejilla">${candidatos.length ? candidatos.map(p => `
+        <label class="campo"><span class="et"><input type="checkbox" name="fondo" value="${esc(p.id)}"
+          ${x && p.carteraId === x.id ? "checked" : ""}> ${esc(nombre(p))}${p.carteraId && (!x || p.carteraId !== x.id)
+            ? ` <small>(ahora en ${esc(nombreCartera(p.carteraId))})</small>` : ""}</span></label>`).join("")
+        : '<p class="subt ancho">Añade primero los fondos que forman la cartera.</p>'}</div>`,
+    async f => {
+      const d = campos(f);
+      delete d.fondo;
+      d.productos = [...f.querySelectorAll("input[name=fondo]:checked")].map(i => i.value);
+      if (!nuevo) d.id = x.id;
+      await guarda("carteras", d);
+      E.vista = "carteras";
+      recuerda.guarda("patrimonio.editor", "carteras");
+      return null;
+    });
+    if (x) rellena(f, { nombre: x.nombre, entidad: x.entidad || "", ltvMax: x.ltvMax != null ? decimal(x.ltvMax) : "" });
+  }
+
+  async function borrarCartera(id) {
+    const c = CAR().find(y => y.id === id);
+    if (!confirm(`¿Borrar la cartera «${c ? c.nombre : "esta cartera"}»? Sus fondos NO se borran: quedan sueltos. ` +
+      "Si un préstamo la tiene como garantía, antes tendrás que cambiar su garantía.")) return;
+    try { await borra("carteras", id); pinta(); } catch (e) { avisa([e.message]); }
+  }
+
   /* ---------------------------------------------- pignoraciones */
   const PIG = () => E.cfg.pignoraciones || [];
   const calculada = id => ((D && D.pignoraciones) || []).find(x => x.id === id);
 
+  // Garantía de un préstamo: el resumen calculado por el servidor si lo hay; si no (recién creado), lo que dice la cartera.
+  const resumenGarantia = x => calculada(x.id) || {
+    carterasDetalle: CAR().filter(c => (x.carteraIds || []).includes(c.id)).map(c => ({ nombre: c.nombre })),
+    activosSueltos: x.activos || [], activosDetalle: x.activos || [] };
+
   function vistaPignoraciones() {
     const filas = PIG().map(x => {
       const liq = x.estado === "liquidada";
-      const activos = x.activos.map(a => esc(nombre(prod(a)))).join(", ");
+      const activos = esc(Carteras.textoGarantia(resumenGarantia(x)));
       return `<tr><td>${esc(x.nombre)}${x.entidad ? ` <small class="idp">${esc(x.entidad)}</small>` : ""}</td>
         <td>${activos}</td><td>${eur(x.principal)}</td><td>${num(x.interes, 2)} %</td>
         <td>${x.cuota ? eur(x.cuota) : "—"}</td>
@@ -203,7 +264,7 @@
     }).join("");
     return `<section class="tarjeta"><header><h2>Pignoraciones</h2>
         <span class="subt">Préstamos que te da el broker con tus activos como garantía. Cuentan como deuda en tu
-          patrimonio y los activos pignorados no se pueden vender mientras dure.</span><span class="sp"></span>
+          patrimonio y los activos pignorados no se pueden vender ni traspasar mientras dure.</span><span class="sp"></span>
         <button class="btn prim" data-acc="nuevaPig">+ Añadir pignoración</button></header>
       ${filas ? `<div class="tablaEnv"><table class="dt"><thead><tr><th>Préstamo</th><th>Activos en garantía</th>
         <th>Recibido</th><th>Interés</th><th>Cuota</th><th>Estado</th><th></th></tr></thead>
@@ -224,7 +285,7 @@
           "opcional: Excel o CSV de tu broker", "ancho")}
         <div class="ancho" id="pgInfoCuadro" hidden></div>
         ${campo("Nombre", '<input name="nombre" placeholder="Préstamo con mi cartera indexada">', "", "ancho")}
-        ${campo("Entidad", '<input name="entidad" placeholder="MyInvestor">')}
+        ${campo("Entidad", '<input name="entidad" placeholder="Tu broker o banco">')}
         ${campo("Fecha en que recibiste el dinero", '<input type="date" name="fecha">')}
         ${campo("Dinero recibido (principal)", '<div class="conSufijo"><input name="principal" inputmode="decimal" placeholder="10.000,00"><span>€</span></div>')}
         ${campo("Interés anual (TIN)", '<div class="conSufijo"><input name="interes" inputmode="decimal" placeholder="5"><span>%</span></div>')}
@@ -235,7 +296,12 @@
         ${campo("Comisión de cancelación anticipada", '<div class="conSufijo"><input name="comisionCancelacion" inputmode="decimal" placeholder="0"><span>%</span></div>', "% sobre lo que quede por pagar")}
         ${campo("Límite de préstamo sobre garantía (LTV máx.)", '<div class="conSufijo"><input name="ltvMax" inputmode="decimal" placeholder="opcional"><span>%</span></div>', "míralo en tu contrato: sirve para calcular tu margen")}
       </div>
-      ${seccion("Activos en garantía")}
+      ${CAR().length ? `${seccion("Carteras en garantía")}
+      <div class="rejilla">${CAR().map(c => `
+        <label class="campo"><span class="et"><input type="checkbox" name="cartera" value="${esc(c.id)}"
+          ${x && (x.carteraIds || []).includes(c.id) ? "checked" : ""}> ${esc(c.nombre)}
+          <small>${fondosDe(c).length} ${fondosDe(c).length === 1 ? "fondo" : "fondos"}${c.ltvMax != null ? " · LTV máx. " + num(c.ltvMax, 2) + " %" : ""}</small></span></label>`).join("")}</div>` : ""}
+      ${seccion(CAR().length ? "Otros fondos en garantía (sueltos)" : "Activos en garantía")}
       <div class="rejilla">${candidatos.length ? candidatos.map(p => `
         <label class="campo"><span class="et"><input type="checkbox" name="activo" value="${esc(p.id)}"
           ${x && x.activos.includes(p.id) ? "checked" : ""}> ${esc(nombre(p))}</span></label>`).join("")
@@ -247,8 +313,9 @@
       </div>`,
     async f => {
       const d = campos(f);
-      delete d.cuadroArchivo; delete d.activo;
+      delete d.cuadroArchivo; delete d.activo; delete d.cartera;
       d.activos = [...f.querySelectorAll("input[name=activo]:checked")].map(i => i.value);
+      d.carteraIds = [...f.querySelectorAll("input[name=cartera]:checked")].map(i => i.value);
       if (cuadro) d.cuadro = cuadro;
       if (!nuevo) d.id = x.id;
       await guarda("pignoraciones", d);
@@ -260,6 +327,15 @@
       comisionApertura: decimal(x.comisionApertura), comisionCancelacion: decimal(x.comisionCancelacion),
       ltvMax: decimal(x.ltvMax) });
     else rellena(f, { fecha: hoy(), comisionApertura: "0", comisionCancelacion: "0" });
+
+    // El LTV de las carteras en garantía se propone como ayuda (el del contrato, si lo escribes, manda).
+    const actualizaLtv = () => {
+      const ids = [...f.querySelectorAll("input[name=cartera]:checked")].map(i => i.value);
+      const s = Carteras.ltvSugerido(ids, f.querySelectorAll("input[name=activo]:checked").length, CAR());
+      f.elements.ltvMax.placeholder = s != null ? `sugerido por la cartera: ${String(s).replace(".", ",")}` : "opcional";
+    };
+    f.querySelectorAll("input[name=cartera], input[name=activo]").forEach(i => { i.onchange = actualizaLtv; });
+    actualizaLtv();
 
     const aviso = txt => { const el = f.querySelector("#pgInfoCuadro"); el.hidden = !txt; el.innerHTML = txt || ""; };
     if (cuadro) aviso(`<div class="resumen"><span>Cuadro guardado: ${cuadro.length} cuotas.</span></div>`);
@@ -410,6 +486,8 @@
         ${campo("Grupo para la asignación", `<input name="grupo" list="edGrupos" placeholder="Renta variable">
           <datalist id="edGrupos">${[...new Set(E.cfg.productos.map(x => x.grupo).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist>`,
           "opcional: con él defines tu reparto objetivo en Planificación")}
+        ${CAR().length ? campo("Cartera", `<select name="carteraId"><option value="">Sin cartera</option>${CAR().map(c => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join("")}</select>`,
+          "opcional: agrupa los fondos que gestiona una misma cartera (Datos → Carteras)") : ""}
         ${campo("Dónde está custodiado", `<select name="custodia"><option value="">En España</option><option value="extranjero">En el extranjero</option></select>`,
           "para el aviso de los modelos 720/721")}
         ${campo("Color en los gráficos", `<div class="colores">${colores}</div>`)}
@@ -992,6 +1070,9 @@
     liquidarPig: soloPropio(id => formLiquidar(PIG().find(x => x.id === id))),
     reabrirPig: soloPropio(reabrirPig),
     borrarPig: soloPropio(borrarPig),
+    nuevaCartera: soloPropio(() => formCartera(null)),
+    editarCartera: soloPropio(id => formCartera(CAR().find(c => c.id === id))),
+    borrarCartera: soloPropio(borrarCartera),
     editarValor: soloPropio(id => formValor(E.cfg.valoraciones.find(v => v.id === id))),
     borrarValor: soloPropio(borrarValor),
     todosValores: soloPropio(todosValores),

@@ -79,6 +79,14 @@ class Csp(unittest.TestCase):
         self.assertNotIn("</i>${o.s.nombre}", js)
         self.assertIn("escH(s.nombre)", js)
 
+    def test_carteras_js_se_carga_en_la_app_y_viaja_en_la_exportacion(self):
+        """Lo que app.js necesita tiene que cargarse antes que él, y también dentro del .html exportado."""
+        with open(os.path.join(WEB, "cargador.js"), encoding="utf-8") as f:
+            cargador = f.read()
+        self.assertLess(cargador.index('"carteras.js"'), cargador.index('"app.js"'))
+        html = exportar.pagina(WEB, {"total": {"patrimonio": 0, "serie": [], "hitos": []}, "productos": []})
+        self.assertIn("Totales por cartera de fondos", html)                    # cabecera de carteras.js
+
     def test_la_web_exportada_sigue_llevando_los_scripts(self):
         html = exportar.pagina(WEB, {"total": {"patrimonio": 0, "serie": [], "hitos": []}, "productos": []})
         self.assertNotIn("cargador.js", html)

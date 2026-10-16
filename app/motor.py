@@ -20,7 +20,7 @@ import urllib.request
 import datetime as dt
 from collections import defaultdict
 
-from . import exposicion, fiscal, ingresos, pignoracion, umbrales
+from . import carteras, exposicion, fiscal, ingresos, pignoracion, umbrales
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -357,6 +357,8 @@ def xirr(flujos):
     if len(flujos) < 2:
         return None
     if not (any(v < 0 for _, v in flujos) and any(v > 0 for _, v in flujos)):
+        return None
+    if len({f for f, _ in flujos}) < 2:          # todo el mismo día: el VAN vale 0 con cualquier tasa, no hay TIR
         return None
     f0 = min(f for f, _ in flujos)
 
@@ -1331,7 +1333,7 @@ def construir(cfg, carpeta, descargar=True):
                     "precioRef": r4(prod_v["nav"]), "btcRef": r2(ref),
                     "fechaRef": prod_v.get("navFecha") or fecha_extracto.isoformat()}
 
-    # Activos en garantía: se marcan para que se vea en todas partes que no se pueden vender.
+    # Activos en garantía: se marcan para que se vea en todas partes que no se pueden vender ni traspasar.
     en_garantia = pignoracion.marcas(cfg, fecha_extracto)
     for p in productos + ser_otros:
         if p["id"] in en_garantia:
@@ -1401,6 +1403,7 @@ def construir(cfg, carpeta, descargar=True):
         "objetivo": cfg.get("objetivo"),
         "asignacion": cfg.get("asignacion") or {"objetivos": {}},
         "alertas": {"umbrales": umbrales.de(cfg)},
+        "carteras": carteras.resumen(cfg.get("carteras"), productos, fecha_extracto, xirr),
         "transparencia": transparencia,
         "fiscal": resumen_fiscal,
         "ingresos": resumen_ingresos,

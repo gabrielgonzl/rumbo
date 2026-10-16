@@ -14,5 +14,6 @@ Un solo término por concepto, en la interfaz, el README y los textos de ayuda.
 | **Plusvalía de reembolso** | Ganancia **ya realizada** que informa MyInvestor al reembolsar. | |
 | **Rentabilidad** | Porcentaje ganado sobre lo aportado (y **TIR** si se tiene en cuenta cuándo aportaste). | «rendimiento» para esta idea |
 | **Rendimiento** | Solo para ingresos periódicos: dividendos («rendimiento sobre coste», yield on cost). | |
-| **Garantía** | Valor de los productos pignorados que respaldan un préstamo. | |
-| **LTV** | Deuda dividida entre garantía, en %. En textos largos: «préstamo sobre garantía». | |
+| **Cartera** (de fondos) | Grupo de fondos que una entidad gestiona junto, como una cartera indexada gestionada por una entidad: se contrata y se aporta a la cartera y un gestor la reparte y reequilibra. Se define en Datos → Carteras. | «cesta», «paquete». No la confundas con «tu cartera» a secas, que en la app es todo lo que tienes (el patrimonio completo): ante la duda, escribe «cartera de fondos». |
+| **Garantía** | Valor de los productos pignorados que respaldan un préstamo. Mientras dura la pignoración, esos productos **no se pueden vender ni traspasar** (en Rumbo, un traspaso es una venta y una compra). | |
+| **LTV** | Deuda dividida entre garantía, en %. En textos largos: «préstamo sobre garantía». El **LTV máximo** lo fija el contrato del préstamo y puede cubrir varios fondos o carteras a la vez; una cartera puede llevar uno «sugerido». | |

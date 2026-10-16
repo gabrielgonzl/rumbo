@@ -149,10 +149,10 @@
   const enseñable = p => !(p.derivado && !p.valor);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
     c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  // Candado de los activos en garantía: no se pueden vender mientras dure la pignoración.
+  // Candado de los activos en garantía: no se pueden vender ni traspasar mientras dure la pignoración.
   const bloqueo = p => p.pignoradoEn && p.pignoradoEn.length
     ? `<span class="lock" title="Pignorado en «${esc(p.pignoradoEn.map(x => x.nombre).join("», «"))}»: ` +
-      `no se puede vender hasta liquidar la pignoración">🔒</span>` : "";
+      `no se puede vender ni traspasar hasta liquidar la pignoración">🔒</span>` : "";
   const visibles = () => TODOS().filter(p => !estado.ocultos.has(p.id));
   const filtrando = () => estado.ocultos.size > 0;
   const buscaProd = id => TODOS().find(p => p.id === id);
@@ -1020,10 +1020,16 @@
      ================================================================ */
   const pos = { agrupar: recuerda.lee("patrimonio.agrupar") || "tipo", orden: { col: "valor", desc: true }, q: "" };
   const AGRUPAR = [{ id: "tipo", et: "Tipo" }, { id: "garantia", et: "En garantía" }, { id: "clase", et: "Categoría" }, { id: "ninguno", et: "Sin agrupar" }];
+  const hayCarteras = () => Array.isArray(D.carteras) && D.carteras.length > 0;
+  // «Cartera» solo se ofrece si hay carteras; un modo recordado que ya no existe vuelve a «Tipo».
+  const opcionesAgrupar = () => hayCarteras() ? [AGRUPAR[0], { id: "cartera", et: "Cartera" }].concat(AGRUPAR.slice(1)) : AGRUPAR;
+  const modoAgrupar = () => pos.agrupar === "cartera" && !hayCarteras() ? "tipo" : pos.agrupar;
+  const CLAVE_ABIERTAS = "patrimonio.carterasAbiertas";
+  const carterasAbiertas = () => { try { const v = JSON.parse(recuerda.lee(CLAVE_ABIERTAS) || "[]"); return new Set(Array.isArray(v) ? v : []); } catch (e) { return new Set(); } };
 
   function badgeGarantia(p) {
     return p.pignoradoEn && p.pignoradoEn.length
-      ? `<span class="badge lock" title="Pignorado en «${esc(p.pignoradoEn.map(x => x.nombre).join("», «"))}»: no se puede vender hasta liquidar">${ICO_LOCK} En garantía</span>` : "";
+      ? `<span class="badge lock" title="Pignorado en «${esc(p.pignoradoEn.map(x => x.nombre).join("», «"))}»: no se puede vender ni traspasar hasta liquidar">${ICO_LOCK} En garantía</span>` : "";
   }
 
   function filasPos() {
@@ -1040,12 +1046,12 @@
   function pintaPosiciones() {
     const tabla = $("#tablaPos");
     if (!tabla) return;
-    pintaSegm($("#segAgrupar"), AGRUPAR, pos.agrupar, id => { pos.agrupar = id; recuerda.guarda("patrimonio.agrupar", id); pintaPosiciones(); });
+    pintaSegm($("#segAgrupar"), opcionesAgrupar(), modoAgrupar(), id => { pos.agrupar = id; recuerda.guarda("patrimonio.agrupar", id); pintaPosiciones(); });
     const buscar = $("#posBuscar");
     if (buscar && buscar.value !== pos.q) buscar.value = pos.q;
     let filas = filasPos();
     const q = pos.q.trim().toLowerCase();
-    if (q) filas = filas.filter(f => (f.p.nombre + " " + (f.p.identificador || "") + " " + f.clase).toLowerCase().includes(q));
+    if (q) filas = filas.filter(f => Carteras.coincide(f, q, D.carteras));
     const o = pos.orden;
     const cmp = (a, b) => {
       const va = a[o.col], vb = b[o.col];
@@ -1058,32 +1064,67 @@
       const act = o.col === c;
       return `<th class="orden${c === "clase" ? " c-clase" : ""}" data-c="${c}" aria-sort="${act ? (o.desc ? "descending" : "ascending") : "none"}" tabindex="0">${et}${act ? (o.desc ? " ↓" : " ↑") : ""}</th>`;
     }).join("");
-    const fila = f => `<tr class="fila" data-id="${esc(f.id)}" tabindex="0">
+    const fila = (f, attrs = "") => `<tr class="fila" ${attrs} data-id="${esc(f.id)}" tabindex="0">
         <td class="nom"><i class="pt" data-st="background:${color(f.p)}"></i>${esc(f.nombre)} ${badgeGarantia(f.p)}</td>
         <td class="c-clase">${esc(f.clase)}</td><td>${G.fmtPct(f.peso, 1)}</td><td>${G.fmtEur(f.valor)}</td>
         <td class="${f.plus == null ? "" : f.plus >= 0 ? "pos" : "neg"}">${f.plus == null ? "—" : G.fmtEurSigno(f.plus)}</td>
         <td class="${f.pct == null ? "" : f.pct >= 0 ? "pos" : "neg"}">${f.pct == null ? "—" : G.fmtPctSigno(f.pct, 1)}</td>
         <td class="${f.tir == null ? "" : f.tir >= 0 ? "pos" : "neg"}">${f.tir == null ? "—" : G.fmtPctSigno(f.tir, 1)}</td></tr>`;
     let cuerpo = "";
-    if (pos.agrupar === "ninguno") cuerpo = filas.sort(cmp).map(fila).join("");
-    else {
+    const modo = modoAgrupar();
+    if (modo === "ninguno") cuerpo = filas.sort(cmp).map(f => fila(f)).join("");
+    else if (modo === "cartera") {
+      // Una línea plegable por cartera (plegadas por defecto); con una búsqueda activa se despliegan las que coinciden.
+      const abiertas = carterasAbiertas();
+      const buscando = !!q;
+      Carteras.agrupa(filas, D.carteras).forEach(g => {
+        const suelta = g.id === Carteras.SIN;
+        const abierta = suelta || buscando || abiertas.has(g.id);
+        const pc = g.pct == null ? "" : g.pct >= 0 ? "pos" : "neg";
+        const nf = `${g.filas.length} ${g.filas.length === 1 ? "fondo" : "fondos"}`;
+        const detalle = suelta ? "" : `${g.entidad ? " · " + esc(g.entidad) : ""}${g.ltvMax != null ? " · LTV máx. " + esc(String(g.ltvMax).replace(".", ",")) + " %" : ""}`;
+        cuerpo += suelta
+          ? `<tr class="grupo"><td colspan="2">${esc(g.nombre)} · ${nf}</td><td>${G.fmtPct(g.peso, 1)}</td><td>${G.fmtEur(g.valor)}</td><td colspan="3"></td></tr>`
+          : `<tr class="grupo cartera" data-cartera="${esc(g.id)}" role="button" tabindex="0" aria-expanded="${abierta}">
+              <td colspan="2"><span class="chev" aria-hidden="true">${abierta ? "▾" : "▸"}</span> ${esc(g.nombre)} · ${nf}${detalle}</td>
+              <td>${G.fmtPct(g.peso, 1)}</td><td>${G.fmtEur(g.valor)}</td>
+              <td class="${g.plus == null ? "" : g.plus >= 0 ? "pos" : "neg"}">${g.plus == null ? "—" : G.fmtEurSigno(g.plus)}</td>
+              <td class="${pc}">${g.pct == null ? "—" : G.fmtPctSigno(g.pct, 1)}</td>
+              <td class="${g.tir == null ? "" : g.tir >= 0 ? "pos" : "neg"}">${g.tir == null ? "—" : G.fmtPctSigno(g.tir, 1)}</td></tr>`;
+        cuerpo += g.filas.sort(cmp).map(f => fila(f, `data-hija="${esc(g.id)}"${abierta ? "" : " hidden"}`)).join("");
+      });
+    } else {
       const g = new Map();
-      filas.forEach(f => { const k = f[pos.agrupar]; (g.get(k) || g.set(k, []).get(k)).push(f); });
+      filas.forEach(f => { const k = f[modo]; (g.get(k) || g.set(k, []).get(k)).push(f); });
       [...g.entries()].sort((a, b) => b[1].reduce((s, f) => s + f.valor, 0) - a[1].reduce((s, f) => s + f.valor, 0))
         .forEach(([k, items]) => {
           const tot = items.reduce((s, f) => s + f.valor, 0), pes = items.reduce((s, f) => s + f.peso, 0);
           cuerpo += `<tr class="grupo"><td colspan="2">${esc(k)} · ${items.length}</td><td>${G.fmtPct(pes, 1)}</td><td>${G.fmtEur(tot)}</td><td colspan="3"></td></tr>`
-            + items.sort(cmp).map(fila).join("");
+            + items.sort(cmp).map(f => fila(f)).join("");
         });
     }
     const total = filas.reduce((a, f) => a + f.valor, 0);
     tabla.innerHTML = `<thead><tr>${cabecera}</tr></thead><tbody>${cuerpo || '<tr><td colspan="7" class="vacio">Ningún producto coincide con la búsqueda.</td></tr>'}</tbody>
       <tfoot><tr class="filaTotal"><td colspan="3">Total ${filas.length} productos</td><td>${G.fmtEur(total)}</td><td colspan="3"></td></tr></tfoot>`;
-    $("#posNota").textContent = pos.agrupar === "ninguno" ? "Pulsa una fila para ver su ficha" : "Agrupadas · pulsa una fila para ver su ficha";
+    $("#posNota").textContent = modo === "ninguno" ? "Pulsa una fila para ver su ficha"
+      : modo === "cartera" ? "Por cartera · pulsa una cartera para ver sus fondos y un fondo para ver su ficha"
+      : "Agrupadas · pulsa una fila para ver su ficha";
     tabla.querySelectorAll("th.orden").forEach(th => {
       const act = () => { const c = th.dataset.c; pos.orden = { col: c, desc: pos.orden.col === c ? !pos.orden.desc : c !== "nombre" && c !== "clase" }; pintaPosiciones(); };
       th.onclick = act;
       th.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } };
+    });
+    tabla.querySelectorAll("tr.cartera").forEach(tr => {
+      const alterna = () => {
+        const id = tr.dataset.cartera, abiertas = carterasAbiertas();
+        if (abiertas.has(id)) abiertas.delete(id); else abiertas.add(id);
+        recuerda.guarda(CLAVE_ABIERTAS, JSON.stringify([...abiertas]));
+        pintaPosiciones();
+        const nueva = [...document.querySelectorAll("#tablaPos tr.cartera")].find(x => x.dataset.cartera === id);
+        if (nueva) nueva.focus();                                   // el foco no se pierde al repintar
+      };
+      tr.onclick = alterna;
+      tr.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alterna(); } };
     });
     tabla.querySelectorAll("tr.fila").forEach(tr => {
       const abre = () => abreDetalle(tr.dataset.id);
@@ -1166,7 +1207,7 @@
       ${activa ? `<div class="riesgoGrid">
           ${kpi("Préstamo / garantía", pctTxt(x.ratio), x.ltvMax ? "límite " + String(x.ltvMax).replace(".", ",") + " %" : "límite sin indicar")}
           ${kpi("Deuda pendiente", G.fmtEur(x.saldo), x.devengado ? "+" + G.fmtEur(x.devengado) + " de intereses devengados" : "")}
-          ${kpi("Garantía hoy", G.fmtEur(x.garantia, 0), x.activosDetalle.length + (x.activosDetalle.length === 1 ? " activo" : " activos"))}
+          ${kpi("Garantía hoy", G.fmtEur(x.garantia, 0), esc(Carteras.textoGarantia(x)))}
           ${kpi("Cuota", G.fmtEur(x.cuota), x.proxima ? "próxima: " + G.fmtFecha(x.proxima.fecha) : "")}
           ${kpi("Interés anual", String(x.interes).replace(".", ",") + " %", x.comisionApertura ? "apertura " + G.fmtEur(x.comisionApertura) : "sin comisión de apertura")}
           ${kpi("Intereses", G.fmtEur(x.interesesPagados, 0) + " pagados", G.fmtEur(x.interesesRestantes, 0) + " por pagar")}
@@ -1176,7 +1217,7 @@
         <p>Cancelarla hoy costaría <b>${G.fmtEur(x.aLiquidar)}</b> (deuda ${G.fmtEur(x.saldo)} + intereses devengados ${G.fmtEur(x.devengado)}${x.penalizacion ? ` + comisión de cancelación ${G.fmtEur(x.penalizacion)}` : ""})
           y te ahorraría unos <b class="pos">${G.fmtEur(Math.max(0, x.ahorroSiLiquidas), 0)}</b> de intereses. Coste total del préstamo: ${G.fmtEur(x.costeTotal, 0)}.</p>
         <details class="faq"><summary>Qué implica tener activos pignorados</summary><div><ul>
-          <li><b>Bloqueo:</b> no puedes vender ${x.activosDetalle.length > 1 ? "esos activos" : "ese activo"} hasta liquidar el préstamo.</li>
+          <li><b>Bloqueo:</b> no puedes vender ni traspasar ${x.activosDetalle.length > 1 ? "esos activos" : "ese activo"} hasta liquidar el préstamo.</li>
           <li><b>Liquidación forzosa:</b> si su valor baja demasiado, la entidad puede pedirte más garantía o vender por ti, aunque sea en mal momento.</li>
           <li><b>Coste:</b> pagas un ${String(x.interes).replace(".", ",")} % anual; lo que reinviertas debe rendir más que eso para compensar.</li>
           <li><b>Patrimonio neto:</b> la deuda se resta de tu patrimonio, así que no se infla con el dinero recibido.</li></ul></div></details>
@@ -1561,7 +1602,7 @@
       ["Plusvalía ya materializada", p.realizado ? G.fmtEur(p.realizado) : null],
       ["Peso en el patrimonio", p.peso != null ? G.fmtPct(p.peso, 1) : null],
       ["Pignorado en", p.pignoradoEn && p.pignoradoEn.length
-        ? "🔒 " + esc(p.pignoradoEn.map(x => x.nombre).join(", ")) + " · no se puede vender" : null],
+        ? "🔒 " + esc(p.pignoradoEn.map(x => x.nombre).join(", ")) + " · no se puede vender ni traspasar" : null],
     ].filter(c => c[0] && c[1]);
 
     const hayVL = !!(p.navSerie && p.navSerie.some(v => v));

@@ -21,7 +21,7 @@ class Migracion(unittest.TestCase):
               "pignoraciones": []}
         copia = json.loads(json.dumps(v2))
         self.assertTrue(almacen.migra(v2))
-        self.assertEqual(v2["version"], 3)
+        self.assertEqual(v2["version"], almacen.VERSION_ACTUAL)      # la cadena de migraciones llega hasta la última
         self.assertEqual(v2["alertas"], {"umbrales": umbrales.POR_DEFECTO})
         for k in copia:
             if k != "version":
