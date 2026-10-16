@@ -354,6 +354,14 @@ class InterfazEditor(unittest.TestCase):
         self.assertIn('name="carteraId"', ed)
         self.assertIn("Sin cartera", ed)
 
+    def test_borrar_una_cartera_avisa_de_los_prestamos_que_respalda(self):
+        """Antes no avisaba: quitarla de una garantía compartida cambiaba el LTV sugerido sin decirlo."""
+        ed = _js("editor.js")
+        trozo = ed[ed.index("async function borrarCartera"):][:1400]
+        self.assertIn("carteraIds", trozo)
+        self.assertIn("su garantía bajará", trozo)
+        self.assertIn("LTV", trozo)
+
     def test_nombres_de_cartera_siempre_escapados(self):
         ed = _js("editor.js")
         trozo = ed[ed.index("function vistaCarteras"):ed.index("function vistaCarteras") + 2600]

@@ -235,8 +235,11 @@
 
   async function borrarCartera(id) {
     const c = CAR().find(y => y.id === id);
-    if (!confirm(`¿Borrar la cartera «${c ? c.nombre : "esta cartera"}»? Sus fondos NO se borran: quedan sueltos. ` +
-      "Si un préstamo la tiene como garantía, antes tendrás que cambiar su garantía.")) return;
+    // Los préstamos vivos que la tienen en su garantía: avisamos antes de que la garantía (y su LTV sugerido) cambie.
+    const usada = PIG().filter(x => x.estado !== "liquidada" && (x.carteraIds || []).includes(id)).map(x => `«${x.nombre}»`);
+    const aviso = usada.length ? `\n\nEstá en la garantía de ${usada.join(", ")}: su garantía bajará y su LTV máximo sugerido puede cambiar. ` +
+      "Si es la única garantía de un préstamo, no te dejaré borrarla." : "";
+    if (!confirm(`¿Borrar la cartera «${c ? c.nombre : "esta cartera"}»? Sus fondos NO se borran: quedan sueltos.${aviso}`)) return;
     try { await borra("carteras", id); pinta(); } catch (e) { avisa([e.message]); }
   }
 

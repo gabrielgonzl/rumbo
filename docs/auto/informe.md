@@ -69,7 +69,9 @@ en 8 tareas (ledger local, commits pequeños):
   historia frases que identificaban lo que el usuario tiene contratado. La rama se subió con `--force-with-lease`. Los commits antiguos
   pueden seguir siendo alcanzables por su identificador en GitHub (la línea de tiempo del PR y la red de forks) hasta que GitHub los
   elimine; borrarlos del todo requiere pedírselo a GitHub.
-- **Estado:** 231 tests de Python y 7 archivos de Node en verde.
+- **Menor cerrado:** al borrar una cartera que está en la garantía de un préstamo vivo, la confirmación lo dice (su garantía bajará y su
+  LTV sugerido puede cambiar) en lugar de hacerlo en silencio. Sigue sin dejar borrar la que sea la única garantía de un préstamo.
+- **Estado:** 232 tests de Python y 7 archivos de Node en verde.
 - **Fuera de esta versión:** el rebalanceo interno sigue viéndose como ventas y compras en Fiscalidad (F2) y aportado/rentabilidad
   reales por cartera (F3). El LTV real lo da el contrato del usuario: el de la cartera es solo una sugerencia.
 - **Ambigüedad conocida:** en la interfaz «tu cartera» a secas significa todo el patrimonio; el glosario pide escribir «cartera de
