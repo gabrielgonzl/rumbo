@@ -105,7 +105,16 @@
     return Math.sqrt(v) * Math.sqrt(252);
   }
 
-  const api = { simula, volatilidad, rng };
+  /* La simulación es determinista (semilla fija): con los mismos datos de entrada el resultado es el mismo,
+     así que al volver a la pestaña o repintar no se vuelve a calcular. Guarda solo la última. */
+  let ultima = { clave: null, res: null };
+  function simulaMemo(e) {
+    const clave = JSON.stringify(e);
+    if (ultima.clave !== clave) ultima = { clave, res: simula(e) };
+    return ultima.res;
+  }
+
+  const api = { simula, simulaMemo, volatilidad, rng };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else raiz.Montecarlo = api;
 })(typeof window !== "undefined" ? window : globalThis);

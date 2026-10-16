@@ -13,6 +13,8 @@ Fondos, ETF, acciones, criptomonedas, oro, planes de pensiones, cuentas del banc
 
 Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil, la mejor forma de apoyarla es [suscribirte al canal de YouTube](https://www.youtube.com/channel/UCiS3qumDoE7QDwzo_ChU6yQ?sub_confirmation=1) ▶, donde cuento cada mes cómo evoluciona la cartera de ejemplo.
 
+> Los términos (producto, bruto, neto, plusvalía…) están definidos en [docs/GLOSARIO.md](docs/GLOSARIO.md).
+
 > **Aviso.** Es una herramienta informativa. **No es asesoramiento financiero** ni una recomendación de compra o venta. Los precios vienen de servicios públicos gratuitos y pueden tener errores o retrasos: no se garantiza la exactitud de los datos. La cartera de ejemplo que trae es la cartera real del autor, con fines divulgativos.
 
 ---
@@ -51,11 +53,13 @@ Herramienta **gratuita** hecha por **Dani Dominguez Quant**. Si te resulta útil
 - **Meta con fecha y asignación objetivo**: en Planificación fijas una meta (y una fecha) y ves cuándo llegas y cuánto aportar; defines el reparto objetivo por grupos y la app te dice a cuál poner la aportación del mes, **sin vender nada**.
 - **Transparencia**: suma las mayores posiciones de todos tus fondos (datos de Morningstar, con caché de 14 días) y tus acciones para enseñarte tu exposición real a cada empresa. Es un mínimo, no un total.
 - **Fiscalidad orientativa** (IRPF, ahorro): ganancias y pérdidas por año con FIFO, regla de recompra (2 meses en valores cotizados, 1 año en fondos), compensación del 25 % con arrastre de 4 años, escala del ahorro (19-30 %) y aviso de los modelos 720/721. Es una estimación: no sustituye a un asesor.
-- **Pignoraciones**: anota el préstamo con garantía de tus fondos o acciones (importando el cuadro de amortización de tu broker). Marca los activos bloqueados, resta la deuda de tu patrimonio, calcula el coste real y el margen frente a una caída, y permite liquidarla.
+- **Carteras** (Datos → Carteras): agrupa los fondos que una entidad gestiona juntos (por ejemplo, una cartera indexada de MyInvestor). En Posiciones → «Cartera» se ven como una línea plegable con su valor y su plusvalía, y se pueden pignorar enteras.
+- **Pignoraciones**: anota el préstamo con garantía de tus fondos, carteras o acciones (importando el cuadro de amortización de tu broker); si la garantía son carteras con el mismo LTV máximo, se propone ese límite. Marca los activos bloqueados (no se pueden vender ni traspasar hasta liquidarla), resta la deuda de tu patrimonio, calcula el coste real y el margen frente a una caída, y permite liquidarla.
 - **Importación de golpe**: el CSV de MyInvestor, una plantilla de Excel o el extracto de cualquier banco convertido con una IA gratuita.
 - **Nunca tocas un archivo a mano**: todo se hace con formularios, con validación y mensajes en castellano llano.
 - **Copias de seguridad automáticas** y exportación del panel a una página web (con opción de **ocultar los importes**).
 - **Modo vídeo** para grabar tu panel, tema claro u oscuro, y **tus datos nunca salen de tu ordenador**.
+- Estilo visual propio «Carta de navegación»: serif editorial en las cifras, filetes finos y paleta de tinta, en tema claro y oscuro.
 
 | | |
 |---|---|

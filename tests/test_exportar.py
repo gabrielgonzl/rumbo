@@ -30,10 +30,36 @@ class SinImportes(unittest.TestCase):
         k = out["total"]["patrimonio"] / 1000.0
         self.assertAlmostEqual(out["transparencia"]["items"][0]["valor"], 100.0 * k, places=1)
 
+    def test_cifras_del_prestamo_se_escalan_con_el_mismo_factor(self):
+        d = self.datos()
+        d["total"].update(aportado=3000.0, capitalPropio=1000.0, dineroPrestado=2000.0, deudaPignoraciones=1800.0)
+        d["resumenMensual"] = [{"mes": "2026-09", "inicio": 100.0, "fin": 90.0, "aportado": 0.0, "nuevo": 0.0,
+                                "mercado": 0.0, "amortizacionPrestamo": 10.0,
+                                "porProducto": {"d": {"inicio": 100.0, "fin": 90.0, "amortizacionPrestamo": 10.0}}}]
+        out = exportar.sin_importes(d)
+        k = out["total"]["aportado"] / 3000.0
+        t = out["total"]
+        self.assertAlmostEqual(t["capitalPropio"], 1000.0 * k, places=1)
+        self.assertAlmostEqual(t["dineroPrestado"], 2000.0 * k, places=1)
+        self.assertAlmostEqual(t["deudaPignoraciones"], 1800.0 * k, places=1)
+        m = out["resumenMensual"][0]
+        self.assertAlmostEqual(m["amortizacionPrestamo"], 10.0 * k, places=1)
+        self.assertAlmostEqual(m["porProducto"]["d"]["amortizacionPrestamo"], 10.0 * k, places=1)
+        # y nada queda con su valor real (salvo que el factor sea casi 1)
+        if abs(k - 1) > 0.05:
+            self.assertNotAlmostEqual(t["dineroPrestado"], 2000.0, places=0)
+
     def test_la_fiscalidad_no_viaja_en_la_web_sin_importes(self):
         d = self.datos()
         d["fiscal"] = {"anos": [{"ano": 2025, "base": 1234.0, "cuota": 234.0}]}
         self.assertNotIn("fiscal", exportar.sin_importes(d))
+
+    def test_los_ingresos_no_viajan_en_la_web_sin_importes(self):
+        d = self.datos()
+        d["ingresos"] = {"porMes": [{"mes": "2026-01", "total": 40.0, "porProducto": {"a": 40.0}}],
+                         "ultimosDoce": 40.0, "total": {"ultimosDoce": 40.0}}
+        self.assertNotIn("ingresos", exportar.sin_importes(d))
+        self.assertIn("ingresos", d)           # el original no se toca
 
     def test_los_importes_salen_escalados(self):
         out = exportar.sin_importes(self.datos())

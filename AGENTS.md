@@ -42,7 +42,9 @@ Las que se proponen para este proyecto (solo se invocan cuando aplican):
 - Toda ruta debe rechazar peticiones de otros orígenes (ver `app/servidor.py`,
   función `controla_origen`). Rutas nuevas heredan esa protección sin tocar nada.
 - Nada de credenciales, claves o datos personales en el repo ni en la imagen.
-- Los commits y los `push` los autoriza el usuario; los agentes no empujan solos.
+- Los commits y los `push` los autoriza el usuario. Excepción documentada: el trabajo autónomo
+  (`docs/auto/PROTOCOLO.md`) puede commitear y empujar **solo** a la rama `auto/mejora-continua`,
+  nunca a `main` ni fusionar PR.
 
 ## Definición de hecho
 
@@ -50,3 +52,14 @@ Las que se proponen para este proyecto (solo se invocan cuando aplican):
 - La imagen Docker construye y el contenedor queda `healthy`.
 - Una petición con `Sec-Fetch-Site: cross-site` a `/datos.js` devuelve 403.
 - La app carga en `http://127.0.0.1:8765/` con el panel visible.
+
+## Trabajo autónomo
+
+Hay un equipo de agentes que mejora el proyecto de forma iterativa y negociada, descrito en
+`docs/auto/PROTOCOLO.md`: `orquestador` (opus), `disenador-ui`, `ingeniero-calculo`, `verificador`,
+`seguridad-privacidad` y `redactor` (definidos en `.claude/agents/`). El estado vive en
+`docs/auto/tablero.md` e `informe.md`; la dirección visual, en `docs/DIRECCION_VISUAL.md`.
+
+- Rama de trabajo: `auto/mejora-continua`. Nunca `main`.
+- Sin Docker: se verifica con `python -m app` y carpetas temporales; en GitHub, `ci.yml`.
+- Veto: `verificador` y `seguridad-privacidad` pueden vetar; un solo dato personal en el diff es veto.

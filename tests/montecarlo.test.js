@@ -43,3 +43,13 @@ cerca(M.volatilidad(idx), 0.01 * Math.sqrt(252), 0.01, "volatilidad");
 assert.equal(M.volatilidad([100, 101]), null);
 
 console.log("montecarlo.test.js: todo bien");
+
+// Q10: con los mismos datos devuelve el mismo objeto (sin recalcular); si cambia algo, recalcula.
+{
+  const e = { cartera: 10000, garantia: 0, deuda: [], aportacion: 100, anos: 5, mu: 0.05, sigma: 0.15, sigmaGarantia: 0.1, ltvMax: null, n: 200, semilla: 7 };
+  const a = M.simulaMemo(e), b = M.simulaMemo(Object.assign({}, e));
+  assert.equal(a, b);
+  assert.deepEqual(a.p50, M.simula(e).p50);
+  assert.notEqual(M.simulaMemo(Object.assign({}, e, { mu: 0.06 })), a);
+}
+console.log("montecarlo.test.js (memo): todo bien");

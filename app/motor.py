@@ -20,7 +20,7 @@ import urllib.request
 import datetime as dt
 from collections import defaultdict
 
-from . import exposicion, fiscal, pignoracion
+from . import carteras, exposicion, fiscal, ingresos, pignoracion, umbrales
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -357,6 +357,8 @@ def xirr(flujos):
     if len(flujos) < 2:
         return None
     if not (any(v < 0 for _, v in flujos) and any(v > 0 for _, v in flujos)):
+        return None
+    if len({f for f, _ in flujos}) < 2:          # todo el mismo día: el VAN vale 0 con cualquier tasa, no hay TIR
         return None
     f0 = min(f for f, _ in flujos)
 
@@ -1121,6 +1123,7 @@ def construir(cfg, carpeta, descargar=True):
     # y al final solo vale lo que queda tras pagar la deuda pendiente.
     f_prest = pignoracion.flujos(cfg, fecha_extracto)
     deuda_pend = pignoracion.deuda_total(cfg, fecha_extracto)
+    principal_prestado = pignoracion.principal_invertido(cfg, fecha_extracto)
     tir_propia = None
     if f_prest and flujos_globales:
         base = [(f, v) for f, v in flujos_globales[:-1]]          # sin el valor final
@@ -1246,7 +1249,7 @@ def construir(cfg, carpeta, descargar=True):
 
         v0, v1 = suma(ant), suma(i_fin)
         ap = sum(flujo_dia[i] for i in idxs)
-        nuevos, detalle = 0.0, {}
+        nuevos, amortiza, detalle = 0.0, 0.0, {}
         for p in todos_p:
             s = p["serie"]
             pv0 = (s[ant] or 0) if ant >= 0 else 0.0
@@ -1257,13 +1260,21 @@ def construir(cfg, carpeta, descargar=True):
             estrena = (ant < 0 or s[ant] is None) and s[i_fin] is not None
             pnuevo = pv1 if (estrena and p.get("aportado") is None) else 0.0
             nuevos += pnuevo
+            # La deuda de una pignoración baja con cada cuota sin que sea mercado: es
+            # amortización del préstamo, un concepto aparte (no es ganancia ni aportación).
+            # Solo la DEUDA: el «dinero recibido» (efectivo derivado) que baja a 0 al invertirse no es amortización.
+            pamort = ((pv1 - pv0 - pnuevo)
+                      if p.get("derivado") == "pignoracion" and p.get("tipoClave") == "deuda" else 0.0)
+            amortiza += pamort
             if pv1 or pv0 or pap:
                 detalle[p["id"]] = {"inicio": r2(pv0), "fin": r2(pv1), "aportado": r2(pap),
-                                    "nuevo": r2(pnuevo), "mercado": r2(pv1 - pv0 - pap - pnuevo)}
+                                    "nuevo": r2(pnuevo), "amortizacionPrestamo": r2(pamort),
+                                    "mercado": r2(pv1 - pv0 - pap - pnuevo - pamort)}
         b = idx_cartera[ant] if ant >= 0 else idx_cartera[i_ini]
         resumen_mensual.append({
             "mes": mes, "inicio": r2(v0), "fin": r2(v1), "aportado": r2(ap),
-            "nuevo": r2(nuevos), "mercado": r2(v1 - v0 - ap - nuevos),
+            "nuevo": r2(nuevos), "amortizacionPrestamo": r2(amortiza),
+            "mercado": r2(v1 - v0 - ap - nuevos - amortiza),
             "rentabilidad": r4(idx_cartera[i_fin] / b - 1) if b else None,
             "porProducto": detalle,
         })
@@ -1322,7 +1333,7 @@ def construir(cfg, carpeta, descargar=True):
                     "precioRef": r4(prod_v["nav"]), "btcRef": r2(ref),
                     "fechaRef": prod_v.get("navFecha") or fecha_extracto.isoformat()}
 
-    # Activos en garantía: se marcan para que se vea en todas partes que no se pueden vender.
+    # Activos en garantía: se marcan para que se vea en todas partes que no se pueden vender ni traspasar.
     en_garantia = pignoracion.marcas(cfg, fecha_extracto)
     for p in productos + ser_otros:
         if p["id"] in en_garantia:
@@ -1333,6 +1344,11 @@ def construir(cfg, carpeta, descargar=True):
     except Exception as e:      # la orientación fiscal nunca debe tumbar el panel
         aviso(f"No he podido calcular la orientación fiscal: {e}")
         resumen_fiscal = None
+    try:
+        resumen_ingresos = ingresos.calcula(cfg, valores_hoy, fecha_extracto)
+    except Exception as e:      # los ingresos nunca deben tumbar el panel
+        aviso(f"No he podido calcular los ingresos por dividendos: {e}")
+        resumen_ingresos = None
     # Transparencia: lo que hay dentro de los fondos (mayores posiciones), agregado por empresa.
     try:
         transparencia = exposicion.calcula(productos, carpeta, descargar)
@@ -1376,13 +1392,21 @@ def construir(cfg, carpeta, descargar=True):
             "caidaMaximaMercadoFecha": dd_mer_fecha,
             "tirCapitalPropio": tir_propia,
             "deudaPignoraciones": deuda_pend,
+            # «aportado» incluye el dinero que compraste con un préstamo. dineroPrestado = lo
+            # recibido de las pignoraciones vivas que ya se invirtió (pignoracion.principal_invertido);
+            # capitalPropio = aportado - dineroPrestado: lo que salió de tu bolsillo.
+            "dineroPrestado": principal_prestado,
+            "capitalPropio": round(aportado_total - principal_prestado, 2),
         },
         "aportacionesMensuales": {"meses": meses, "porProducto": por_producto,
                                   "total": total_mes},
         "objetivo": cfg.get("objetivo"),
         "asignacion": cfg.get("asignacion") or {"objetivos": {}},
+        "alertas": {"umbrales": umbrales.de(cfg)},
+        "carteras": carteras.resumen(cfg.get("carteras"), productos, fecha_extracto, xirr),
         "transparencia": transparencia,
         "fiscal": resumen_fiscal,
+        "ingresos": resumen_ingresos,
         "pignoraciones": pignoracion.resumen(cfg, valores_hoy, fecha_extracto),
         "comisiones": comisiones,
         "rentabilidadAnual": rent_anual,

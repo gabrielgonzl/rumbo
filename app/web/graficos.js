@@ -16,9 +16,13 @@
   const oculto = () => global.OCULTAR_IMPORTES === true;
   const nfUnidades = { format: v => oculto() ? "•••" : nfNum.format(v) };
 
+  // Un valor que se redondea a cero se enseña como cero, sin signo: -0 y -0,004 no pueden salir «-0,00».
+  const cero = (v, dec) => Math.abs(v) < 0.5 / Math.pow(10, dec) ? 0 : v;
+
   function fmtEur(v, dec) {
     if (oculto()) return "•••";
     if (v === null || v === undefined || isNaN(v)) return "—";
+    v = cero(v, dec === 0 ? 0 : 2);
     return dec === 0 ? nfEur0.format(v) : nfEur.format(v);
   }
   function fmtEurCorto(v) {
@@ -32,16 +36,18 @@
   function fmtPct(v, dec) {
     if (v === null || v === undefined || isNaN(v)) return "—";
     const d = dec === undefined ? 2 : dec;
+    v = cero(v * 100, d) / 100;
     return (v * 100).toLocaleString("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d }) + " %";
   }
   function fmtPctSigno(v, dec) {
     if (v === null || v === undefined || isNaN(v)) return "—";
-    return (v >= 0 ? "+" : "") + fmtPct(v, dec);
+    const d = dec === undefined ? 2 : dec;
+    return (cero(v * 100, d) >= 0 ? "+" : "") + fmtPct(v, dec);
   }
   function fmtEurSigno(v) {
     if (oculto()) return "•••";
     if (v === null || v === undefined || isNaN(v)) return "—";
-    return (v >= 0 ? "+" : "") + fmtEur(v);
+    return (cero(v, 2) >= 0 ? "+" : "") + fmtEur(v);
   }
   function fmtFecha(iso) {
     if (!iso) return "—";
@@ -67,11 +73,125 @@
     (hijos || []).forEach(h => n.appendChild(h));
     return n;
   }
+  // Texto de usuario que acaba en HTML (tooltips): nombres de producto, que pueden venir de una copia ajena.
+  const escH = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   function txt(x, y, s, cls, extra) {
     const n = el("text", Object.assign({ x, y, class: cls || "" }, extra || {}));
     n.textContent = s;
     return n;
   }
+  /* -------------------------------------------------- accesibilidad
+     Cada SVG lleva role="img" y un aria-label con titulo + resumen de lo que
+     dibuja. Las funciones de describir* son puras (sin DOM) y tienen test. */
+  function legible(f) {
+    if (typeof f !== "string") return f;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return fmtFecha(f);
+    if (/^\d{4}-\d{2}$/.test(f)) return fmtMes(f);
+    return f;
+  }
+  function descSerie(tipo, desde, hasta, nombres, ultimo) {
+    desde = legible(desde); hasta = legible(hasta);
+    let t = tipo;
+    if (desde && hasta) t += desde === hasta ? ` (${desde})` : `, de ${desde} a ${hasta}`;
+    if (nombres && nombres.length) t += `. Series: ${nombres.join(", ")}`;
+    if (ultimo) t += `. Último valor: ${ultimo}`;
+    return t + ".";
+  }
+  function descReparto(datos, fmt) {
+    const total = datos.reduce((a, d) => a + d.valor, 0);
+    const partes = datos.map(d => `${d.nombre} ${fmtPct(d.valor / total, 0)}`);
+    return `Reparto en ${datos.length} partes: ${partes.join(", ")}.`;
+  }
+  /* Etiquetas directas al final de cada serie: reparte sus alturas para que no se pisen.
+     ys = posiciones deseadas (px); devuelve las ajustadas, en el mismo orden, dentro de [min, max]. */
+  function separaEtiquetas(ys, hueco, min, max) {
+    const orden = ys.map((y, i) => ({ y, i })).sort((a, b) => a.y - b.y);
+    orden.forEach((o, k) => { o.y = Math.max(o.y, k ? orden[k - 1].y + hueco : min); });
+    for (let k = orden.length - 1; k >= 0; k--) {
+      const tope = k === orden.length - 1 ? max : orden[k + 1].y - hueco;
+      if (orden[k].y > tope) orden[k].y = tope;
+    }
+    const out = new Array(ys.length);
+    orden.forEach(o => { out[o.i] = o.y; });
+    return out;
+  }
+  /* «Bueno (1 de cada 10 acaba por encima)» -> «Bueno»; recorta lo que siga siendo largo. */
+  function nombreCorto(n, max) {
+    const base = String(n).split(" (")[0].trim();
+    return base.length > max ? base.slice(0, max - 1).trimEnd() + "…" : base;
+  }
+
+  /* -------------------------------------------------- tabla alternativa
+     Cada gráfico lleva, bajo él, un «Ver los datos en tabla» (<details>) con los mismos valores y formatos.
+     Los constructores t*() son puros (devuelven {cab, filas, nota}) y tienen test; tablaAlt() solo pinta. */
+  const MAX_FILAS_TABLA = 24;
+  function indicesMuestra(n, max) {
+    if (n <= max) return Array.from({ length: n }, (_, i) => i);
+    const out = [];
+    for (let k = 0; k < max; k++) out.push(Math.round(k * (n - 1) / (max - 1)));
+    return out.filter((v, k) => k === 0 || v !== out[k - 1]);
+  }
+  function notaMuestra(n, mostradas) {
+    return mostradas < n ? `Se muestran ${mostradas} de ${n} fechas, repartidas por igual; la primera y la última siempre.` : "";
+  }
+  function tSerie(etiquetas, series, fV, totales, nombreEt) {
+    const idx = indicesMuestra(etiquetas.length, MAX_FILAS_TABLA);
+    const cab = [nombreEt || "Fecha"].concat(series.map(s => s.nombre), totales ? ["Total"] : []);
+    const filas = idx.map(i => [legible(etiquetas[i])].concat(series.map(s => s.valores[i] == null ? "—" : fV(s.valores[i])),
+      totales ? [fV(totales[i])] : []));
+    return { cab, filas, nota: notaMuestra(etiquetas.length, idx.length) };
+  }
+  function tReparto(datos) {
+    const total = datos.reduce((a, d) => a + d.valor, 0);
+    return { cab: ["Parte", "Valor", "Peso"], filas: datos.map(d => [d.nombre, fmtEur(d.valor), fmtPct(d.valor / total, 1)]), nota: "" };
+  }
+  function tPares(cabecera, cats, vals, f) {
+    return { cab: cabecera, filas: cats.map((c, i) => [String(c), vals[i] == null ? "—" : f(vals[i])]), nota: "" };
+  }
+  function tablaAlt(cont, t) {
+    const det = document.createElement("details");
+    det.className = "tablaAlt";
+    const sum = document.createElement("summary");
+    sum.textContent = "Ver los datos en tabla";
+    det.appendChild(sum);
+    const env = document.createElement("div");
+    env.className = "tablaEnv alto";
+    env.tabIndex = 0;                                   // una zona con scroll tiene que poder enfocarse con teclado
+    env.setAttribute("role", "region");
+    env.setAttribute("aria-label", "Datos del gráfico");
+    const tabla = document.createElement("table");
+    tabla.className = "dt";
+    const fila = (celdas, tag) => {
+      const tr = document.createElement("tr");
+      celdas.forEach((c, k) => { const td = document.createElement(k === 0 && tag === "td" ? "th" : tag); if (k === 0 && tag === "td") td.scope = "row"; td.textContent = c; tr.appendChild(td); });
+      return tr;
+    };
+    const cab = document.createElement("thead"); cab.appendChild(fila(t.cab, "th")); tabla.appendChild(cab);
+    const cuerpo = document.createElement("tbody"); t.filas.forEach(f => cuerpo.appendChild(fila(f, "td"))); tabla.appendChild(cuerpo);
+    env.appendChild(tabla);
+    det.appendChild(env);
+    if (t.nota) { const n = document.createElement("p"); n.className = "subt"; n.textContent = t.nota; det.appendChild(n); }
+    cont.appendChild(det);
+  }
+
+  function tituloDe(cont, cfg, porDefecto) {
+    if (cfg && cfg.titulo) return cfg.titulo;
+    if (cont && cont.getAttribute && cont.getAttribute("data-titulo")) return cont.getAttribute("data-titulo");
+    const hoja = cont && cont.closest && cont.closest("section, article, .hoja, .card");
+    const h = hoja && hoja.querySelector("h1, h2, h3");
+    return (h && h.textContent.trim()) || porDefecto;
+  }
+  function etiquetar(svg, cont, cfg, porDefecto, resumen) {
+    const t = tituloDe(cont, cfg, porDefecto);
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", resumen ? `${t}. ${resumen}` : t);
+    return svg;
+  }
+  function ultimoValido(vals) {
+    for (let i = vals.length - 1; i >= 0; i--) if (vals[i] != null) return vals[i];
+    return null;
+  }
+
   function css(nombre) {
     return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
   }
@@ -131,7 +251,8 @@
     cont.innerHTML = "";
     const W = Math.max(cont.clientWidth, 320);
     const H = cfg.alto || 320;
-    const P = { t: 14, r: 14, b: 26, l: 62 };
+    const conEtiquetas = W >= 560 && cfg.series.filter(s => s.valores.some(v => v)).length > 1;
+    const P = { t: 14, r: conEtiquetas ? 124 : 14, b: 26, l: 62 };
     const iw = W - P.l - P.r, ih = H - P.t - P.b;
     const fechas = cfg.fechas, n = fechas.length;
     const series = cfg.series.filter(s => s.valores.some(v => v));
@@ -158,6 +279,7 @@
     const fV = cfg.formatoValor || fmtEur;
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico", role: "img" });
+    etiquetar(svg, cont, cfg, "Evolución", descSerie("Áreas apiladas", fechas[0], fechas[n - 1], series.map(s => s.nombre), fmtEur(totales[n - 1])));
 
     // rejilla
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
@@ -189,6 +311,16 @@
       svg.appendChild(el("path", { d: dd, fill: "none", class: "overlay" }));
     }
     // ejes
+    if (conEtiquetas) {
+      const medio = series.map((s, k) => (y(k === 0 ? 0 : acum[k - 1][n - 1]) + y(acum[k][n - 1])) / 2);
+      const ay = separaEtiquetas(medio, 14, P.t + 6, P.t + ih - 2);
+      series.forEach((s, k) => {
+        svg.appendChild(el("line", { x1: W - P.r + 3, x2: W - P.r + 11, y1: ay[k], y2: ay[k], stroke: s.color, "stroke-width": 3 }));
+        const t = txt(W - P.r + 15, ay[k] + 4, nombreCorto(s.nombre, 17), "etiquetaSerie");
+        const tit = el("title"); tit.textContent = s.nombre; t.appendChild(tit);
+        svg.appendChild(t);
+      });
+    }
     svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: P.t + ih, y2: P.t + ih, class: "eje" }));
     indicesEjeX(n, W < 520 ? 4 : 7).forEach(i => {
       svg.appendChild(txt(x(i), H - 8, etiquetaEjeX(fechas, i, n), "ejeX",
@@ -205,9 +337,10 @@
     g.appendChild(puntoTot);
     svg.appendChild(g);
 
-    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair" });
+    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(fechas, series, fV, totales));
 
     const tt = creaTooltip(cont);
     function mover(ev) {
@@ -225,7 +358,7 @@
       });
       puntoTot.setAttribute("cx", x(i)); puntoTot.setAttribute("cy", y(totales[i]));
       let filas = series.map((s, k) => s.valores[i]
-        ? `<tr><td><i style="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>` : "")
+        ? `<tr><td><i data-st="background:${s.color}"></i>${escH(s.nombre)}</td><td>${fV(s.valores[i])}</td></tr>` : "")
         .reverse().join("");
       if (cfg.overlay && cfg.overlay.valores[i] != null)
         filas += `<tr class="sep"><td><i class="raya"></i>${cfg.overlay.nombre}</td><td>${fmtEur(cfg.overlay.valores[i])}</td></tr>`;
@@ -267,6 +400,7 @@
     const y = v => P.t + ih - ((v - esc.min) / (esc.max - esc.min)) * ih;
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Evolución", descSerie("Línea", fechas[0], fechas[n - 1], null, fmtEur(ultimoValido(vals))));
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
       svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), class: "rejilla" }));
       svg.appendChild(txt(P.l - 8, y(v) + 4, cfg.formatoY ? cfg.formatoY(v) : fmtEurCorto(v), "ejeY"));
@@ -326,9 +460,10 @@
     const punto = el("circle", { r: 5.5, fill: cfg.color, class: "punto" });
     g.appendChild(linea); g.appendChild(punto);
     svg.appendChild(g);
-    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair" });
+    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(fechas, [{ nombre: cfg.nombreSerie || "Valor", valores: vals }].concat(cfg.overlay ? [{ nombre: cfg.overlay.nombre || "Referencia", valores: cfg.overlay.valores }] : []), cfg.formatoValor || fmtEur));
 
     const porFecha = {}; (cfg.eventos || []).forEach(e => { (porFecha[e.fecha] = porFecha[e.fecha] || []).push(e); });
     const tt = creaTooltip(cont);
@@ -366,6 +501,7 @@
     const series = cfg.series.filter(s => s.valores.some(v => v));
     if (!n || !series.length) { cont.innerHTML = '<p class="vacio">Sin aportaciones en este rango.</p>'; return; }
 
+    const fV = cfg.formatoValor || fmtEur;
     const totales = cats.map((_, i) => series.reduce((a, s) => a + (s.valores[i] || 0), 0));
     const esc = escalaBonita(Math.max(...totales), 0);
     const paso = iw / n;
@@ -373,6 +509,7 @@
     const y = v => P.t + ih - (v / esc.max) * ih;
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Aportaciones por mes", descSerie("Barras apiladas", cats[0], cats[n - 1], series.map(s => s.nombre), fmtEur(totales[n - 1])));
     for (let v = 0; v <= esc.max + 1e-9; v += esc.paso) {
       svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), class: "rejilla" }));
       svg.appendChild(txt(P.l - 8, y(v) + 4, fmtEurCorto(v), "ejeY"));
@@ -410,6 +547,7 @@
     const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(cats.map(c => cfg.formatoCat ? cfg.formatoCat(c) : c), series, cfg.formatoValor || fmtEur, totales, "Mes"));
 
     const tt = creaTooltip(cont);
     function mover(ev) {
@@ -420,7 +558,7 @@
       resalte.setAttribute("x", P.l + paso * i);
       resalte.setAttribute("opacity", 1);
       const filas = series.map(s => s.valores[i]
-        ? `<tr><td><i style="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>` : "")
+        ? `<tr><td><i data-st="background:${s.color}"></i>${escH(s.nombre)}</td><td>${fV(s.valores[i])}</td></tr>` : "")
         .reverse().join("");
       tt.innerHTML = `<b>${fmtMes(cats[i])}</b><div class="ttTotal">${fmtEur(totales[i])}</div><table>${filas}</table>`;
       tt.classList.add("on");
@@ -446,6 +584,7 @@
     if (!total) { cont.innerHTML = '<p class="vacio">Sin datos.</p>'; return; }
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico donut" });
+    etiquetar(svg, cont, cfg, "Reparto", descReparto(datos));
     let ang = -Math.PI / 2;
     const arcos = [];
     datos.forEach((d, i) => {
@@ -464,6 +603,7 @@
     centro.appendChild(txt(cx, cy + 20, cfg.valorCentro || fmtEurCorto(total), "donutValor", { "text-anchor": "middle" }));
     svg.appendChild(centro);
     cont.appendChild(svg);
+    tablaAlt(cont, tReparto(datos));
 
     const tt = creaTooltip(cont);
     arcos.forEach(({ arco, d }) => {
@@ -502,6 +642,7 @@
       ab = true;
     });
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "spark" });
+    etiquetar(svg, cont, {}, "Tendencia", descSerie("Minigráfico", null, null, null, null));
     svg.appendChild(el("path", { d: dd, fill: "none", stroke: color, "stroke-width": 1.75, "stroke-linecap": "round", "stroke-linejoin": "round" }));
     cont.appendChild(svg);
   }
@@ -523,6 +664,7 @@
     const max = cfg.max || Math.max(...datos.map(d => d[1]));
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Reparto", `${datos.length} barras: ` + datos.map(d => `${d[0]} ${d[1].toLocaleString("es-ES", { maximumFractionDigits: 2 })} %`).join(", ") + ".");
     datos.forEach((dd, i) => {
       const yy = i * filaAlto + 3;
       const ancho = Math.max((dd[1] / max) * iw, 2);
@@ -535,6 +677,7 @@
         dd[1].toLocaleString("es-ES", { maximumFractionDigits: 2 }) + " %", "barVal", { "text-anchor": "end" }));
     });
     cont.appendChild(svg);
+    tablaAlt(cont, tPares(["Concepto", "Peso"], datos.map(d => d[0]), datos.map(d => d[1]), v => v.toLocaleString("es-ES", { maximumFractionDigits: 2 }) + " %"));
   }
 
   /* ==================================================
@@ -559,6 +702,7 @@
     const ancho = Math.max(8, Math.min(paso - 18, 64));
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Barras", `${n} barras: ` + cats.map((c, i) => `${c} ${vals[i] == null ? "—" : fY(vals[i])}`).join(", ") + ".");
     const esc = escalaBonita(max, min);
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
       if (v < min || v > max) continue;
@@ -585,6 +729,7 @@
       svg.appendChild(txt(cx, H - 10, cats[i], "ejeX", { "text-anchor": "middle" }));
     });
     cont.appendChild(svg);
+    tablaAlt(cont, tPares(["Categoría", "Valor"], cats, vals, cfg.formatoValor || (x => fmtPctSigno(x, 1))));
   }
 
   /* ==================================================
@@ -594,7 +739,8 @@
     cont.innerHTML = "";
     const W = Math.max(cont.clientWidth, 320);
     const H = cfg.alto || 320;
-    const P = { t: 14, r: 14, b: 26, l: 62 };
+    const conEtiquetas = W >= 560;                       // en pantallas estrechas manda la leyenda
+    const P = { t: 14, r: conEtiquetas ? 124 : 14, b: 26, l: 62 };
     const iw = W - P.l - P.r, ih = H - P.t - P.b;
     const fechas = cfg.fechas, n = fechas.length;
     const series = (cfg.series || []).filter(s => s.valores.some(v => v != null));
@@ -613,6 +759,7 @@
     const y = v => P.t + ih - ((v - esc.min) / (esc.max - esc.min)) * ih;
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Comparación", descSerie("Líneas", fechas[0], fechas[n - 1], series.map(s => s.nombre), null));
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
       svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), class: "rejilla" }));
       svg.appendChild(txt(P.l - 8, y(v) + 4, fY(v), "ejeY"));
@@ -631,6 +778,16 @@
         "stroke-linejoin": "round", "stroke-linecap": "round",
       }));
     });
+    if (conEtiquetas) {
+      const fin = series.map(s => { const u = ultimoValido(s.valores); return u == null ? P.t + ih / 2 : y(u); });
+      const ay = separaEtiquetas(fin, 14, P.t + 6, P.t + ih - 2);
+      series.forEach((s, k) => {
+        svg.appendChild(el("line", { x1: W - P.r + 3, x2: W - P.r + 11, y1: ay[k], y2: ay[k], stroke: s.color, "stroke-width": 2.25 }));
+        const t = txt(W - P.r + 15, ay[k] + 4, nombreCorto(s.nombre, 17), "etiquetaSerie");
+        const tit = el("title"); tit.textContent = s.nombre; t.appendChild(tit);
+        svg.appendChild(t);
+      });
+    }
     svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: P.t + ih, y2: P.t + ih, class: "eje" }));
     indicesEjeX(n, W < 520 ? 4 : 7).forEach(i => {
       svg.appendChild(txt(x(i), H - 8, etiquetaEjeX(fechas, i, n), "ejeX",
@@ -643,9 +800,10 @@
     const puntos = series.map(s => el("circle", { r: 4.5, fill: s.color, class: "punto" }));
     puntos.forEach(p => g.appendChild(p));
     svg.appendChild(g);
-    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair" });
+    const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent", "data-st": "cursor:crosshair" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(fechas, series, cfg.formatoValor || (v => v.toFixed(1))));
 
     const tt = creaTooltip(cont);
     function mover(ev) {
@@ -662,7 +820,7 @@
         if (v != null) { puntos[k].setAttribute("cx", x(i)); puntos[k].setAttribute("cy", y(v)); }
       });
       tt.innerHTML = `<b>${fmtFecha(fechas[i])}</b><table>` + orden.map(o =>
-        `<tr${o.s.destacado ? ' class="sep"' : ""}><td><i style="background:${o.s.color}"></i>${o.s.nombre}</td>
+        `<tr${o.s.destacado ? ' class="sep"' : ""}><td><i data-st="background:${o.s.color}"></i>${escH(o.s.nombre)}</td>
          <td>${(cfg.formatoValor || (v => v.toFixed(1)))(o.v)}</td></tr>`).join("") + "</table>";
       tt.classList.add("on");
       colocaTooltip(tt, cont, x(i) * (r.width / W), ev.clientY - r.top);
@@ -699,6 +857,7 @@
     const ancho = Math.max(3, (Math.min(paso - 8, 54) - hueco * (m - 1)) / m);
 
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafico" });
+    etiquetar(svg, cont, cfg, "Barras agrupadas", descSerie("Barras agrupadas", cats[0], cats[n - 1], series.map(s => s.nombre), null));
     for (let v = esc.min; v <= esc.max + 1e-9; v += esc.paso) {
       svg.appendChild(el("line", { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), class: "rejilla" }));
       svg.appendChild(txt(P.l - 8, y(v) + 4, fY(v), "ejeY"));
@@ -735,6 +894,7 @@
     const captura = el("rect", { x: P.l, y: P.t, width: iw, height: ih, fill: "transparent" });
     svg.appendChild(captura);
     cont.appendChild(svg);
+    tablaAlt(cont, tSerie(cats.map(c => cfg.formatoCat ? cfg.formatoCat(c) : c), series, cfg.formatoValor || fmtEur, null, "Mes"));
 
     const tt = creaTooltip(cont);
     function mover(ev) {
@@ -745,7 +905,7 @@
       resalte.setAttribute("opacity", 1);
       const fV = cfg.formatoValor || fmtEur;
       const filas = series.map(s => s.valores[i] == null ? "" :
-        `<tr><td><i style="background:${s.color}"></i>${s.nombre}</td><td>${fV(s.valores[i])}</td></tr>`).join("");
+        `<tr><td><i data-st="background:${s.color}"></i>${escH(s.nombre)}</td><td>${fV(s.valores[i])}</td></tr>`).join("");
       const total = series.reduce((a, s) => a + (s.valores[i] || 0), 0);
       tt.innerHTML = `<b>${cfg.formatoCat ? cfg.formatoCat(cats[i]) : cats[i]}</b>` +
         `<div class="ttTotal">${fV(total)}</div><table>${filas}</table>`;
@@ -760,6 +920,8 @@
   global.G = {
     fmtEur, fmtEurCorto, fmtPct, fmtPctSigno, fmtEurSigno, fmtFecha, fmtFechaCorta, fmtMes, nfNum: nfUnidades,
     areaApilada, lineaConEventos, barrasApiladas, donut, mini, escalaBonita, css,
-    barrasHorizontales, barrasSimples, multiLinea, barrasAgrupadas
+    barrasHorizontales, barrasSimples, multiLinea, barrasAgrupadas,
+    descSerie, descReparto, separaEtiquetas, nombreCorto,
+    indicesMuestra, tSerie, tReparto, tPares
   };
 })(window);
