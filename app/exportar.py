@@ -25,6 +25,7 @@ CAMPOS_DINERO = {
     "realizado", "participaciones", "titulos", "valorConCoste", "patrimonio", "ritmoMensual",
     "anual", "base", "compraventaPagada", "inicio", "fin", "mercado", "nuevo",
     "comision", "min", "max", "mediana", "p33", "p67", "snapshots", "flujos", "tuya", "tuValor",
+    "capitalPropio", "dineroPrestado", "amortizacionPrestamo", "deudaPignoraciones",
 }
 # «total» y «porProducto» significan cosas distintas según dónde estén (en
 # rentabilidadAnual son porcentajes): solo se escalan en aportacionesMensuales.
@@ -74,6 +75,9 @@ def sin_importes(datos):
     # en la web sin importes no viaja ninguna pignoración.
     out.pop("pignoraciones", None)
     out.pop("fiscal", None)       # ventas, costes y cuotas: importes absolutos sin escalar
+    # Dividendos por mes/año/producto: importes absolutos con claves genéricas (`total`, `ultimosDoce`)
+    # que no están en CAMPOS_DINERO; escalarlas ahí tocaría otros bloques. Más seguro: no viajan.
+    out.pop("ingresos", None)
     if out.get("transparencia"):
         out["transparencia"].pop("total", None)       # el total absoluto delataría el factor de escala
     if out.get("vivo"):
@@ -90,6 +94,7 @@ def pagina(web, datos, ocultar=False, titulo="Mi patrimonio"):
     if ocultar:
         datos = sin_importes(datos)
     datos = dict(datos, modo="estatico", avisos=[])
+    datos.pop("ingresos", None)      # la web exportada no tiene pantalla de ingresos: no viaja ni con importes
     html = lee("index.html")
 
     # Los estilos van dentro del archivo: la web exportada es un único .html sin peticiones externas.
@@ -103,9 +108,11 @@ def pagina(web, datos, ocultar=False, titulo="Mi patrimonio"):
     if ocultar:
         previo += "window.OCULTAR_IMPORTES = true;\n"
     trozos = [previo + "window.DATOS = " + json.dumps(datos, ensure_ascii=False, separators=(",", ":")) + ";"]
-    trozos += [lee(n) for n in ("canal.js", "graficos.js", "proyeccion.js", "metricas.js", "asignacion.js", "montecarlo.js", "app.js")]
+    html = re.sub(r'<script src="estilos\.js"></script>\s*', "", html)       # va dentro, junto al resto
+    trozos.insert(0, lee("estilos.js"))
+    trozos += [lee(n) for n in ("canal.js", "graficos.js", "proyeccion.js", "metricas.js", "alertas.js", "carteras.js", "asignacion.js", "montecarlo.js", "app.js")]
     scripts = "\n".join("<script>\n" + t.replace("</script>", "<\\/script>") + "\n</script>" for t in trozos)
-    html, n = re.subn(r"<script>\s*/\* Carga los scripts.*?</script>", lambda m: scripts, html, flags=re.S)
+    html, n = re.subn(r'<script src="cargador\.js"></script>', lambda m: scripts, html)
     if not n:
         raise RuntimeError("No encuentro el cargador de scripts en index.html.")
 

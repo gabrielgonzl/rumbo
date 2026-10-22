@@ -12,8 +12,11 @@ anotar saldos a mano.
 """
 
 import calendar
+import math
 import datetime as dt
 from decimal import ROUND_HALF_UP, Decimal
+
+from . import umbrales
 
 REDONDEO = 2
 
@@ -136,11 +139,20 @@ def resumen(cfg, valores, hoy):
     Añade la garantía: lo que valen hoy los activos pignorados y cuánto margen hay.
     """
     nombres = {p["id"]: (p.get("corto") or p.get("nombre")) for p in cfg.get("productos", [])}
+    niveles = niveles_de(cfg)
     salida = []
     for p in cfg.get("pignoraciones", []):
         if _fecha(p["fecha"]) > hoy:
             continue
         e = estado(p, hoy)
+        # La garantía y el LTV se resuelven aquí (estado() no conoce la cartera completa).
+        e["activosSueltos"] = list(p.get("activos") or [])
+        e["activos"] = activos_efectivos(cfg, p)
+        e["ltvMax"] = ltv_efectivo(cfg, p)
+        e["ltvSugerido"] = ltv_sugerido(cfg, p)
+        e["carteraIds"] = list(p.get("carteraIds") or [])
+        nombres_c = {c.get("id"): c.get("nombre") for c in cfg.get("carteras", [])}
+        e["carterasDetalle"] = [{"id": i, "nombre": nombres_c[i]} for i in e["carteraIds"] if i in nombres_c]
         garantia = round(sum(valores.get(a, 0.0) for a in e["activos"]), 2)
         deuda = e["saldo"] + e["devengado"]
         e["garantia"] = garantia
@@ -158,10 +170,10 @@ def resumen(cfg, valores, hoy):
             # Lo que habría que amortizar (o garantía que añadir) para volver al límite.
             e["amortizarParaLimite"] = round(max(0.0, deuda - ltv * garantia), 2) if ltv else None
             e["garantiaAnadirParaLimite"] = round(max(0.0, deuda / ltv - garantia), 2) if ltv else None
-            e["nivel"] = nivel_riesgo(e["ratio"], ltv)
+            e["nivel"] = nivel_riesgo(e["ratio"], ltv, *niveles)
             e["stress"] = [{"caida": c, "garantia": round(garantia * (1 - c), 2),
                             "ratio": round(deuda / (garantia * (1 - c)), 4),
-                            "nivel": nivel_riesgo(deuda / (garantia * (1 - c)), ltv)}
+                            "nivel": nivel_riesgo(deuda / (garantia * (1 - c)), ltv, *niveles)}
                            for c in STRESS]
         else:
             for k in ("ratio", "caidaHastaIgualar", "caidaHastaLimite", "garantiaMinima", "superaLimite",
@@ -176,10 +188,20 @@ def resumen(cfg, valores, hoy):
 STRESS = (0.10, 0.20, 0.30, 0.40)
 
 
-def nivel_riesgo(ratio, ltv_max=None):
+def niveles_de(cfg):
+    """(atención, alto) como fracción del límite de la entidad, de los umbrales configurados (75 % y 90 %)."""
+    u = umbrales.de(cfg)
+    a, b = u["ltvAtencion"], u["ltvAlto"]
+    if not 0 < a < b <= 100:
+        a, b = umbrales.POR_DEFECTO["ltvAtencion"], umbrales.POR_DEFECTO["ltvAlto"]
+    return a / 100, b / 100
+
+
+def nivel_riesgo(ratio, ltv_max=None, atencion=0.75, alto=0.9):
     """
     'bajo' | 'medio' | 'alto' | 'peligro'. Con el límite de la entidad, se mide contra él
-    (peligro = ya lo superas); sin él, con umbrales genéricos (70 % y 85 % de la garantía).
+    (peligro = ya lo superas; «medio» desde `atencion` del límite y «alto» desde `alto`);
+    sin él, con umbrales genéricos (70 % y 85 % de la garantía).
     """
     if ratio is None:
         return None
@@ -189,7 +211,7 @@ def nivel_riesgo(ratio, ltv_max=None):
         if ratio > ltv_max:
             return "peligro"
         uso = ratio / ltv_max
-        return "alto" if uso >= 0.9 else "medio" if uso >= 0.75 else "bajo"
+        return "alto" if uso >= alto else "medio" if uso >= atencion else "bajo"
     return "alto" if ratio >= 0.85 else "medio" if ratio >= 0.7 else "bajo"
 
 
@@ -233,12 +255,72 @@ def deuda_total(cfg, hoy):
     return round(sum(saldo_a(p, hoy) for p in cfg.get("pignoraciones", [])), 2)
 
 
+def principal_invertido(cfg, hoy):
+    """
+    Dinero prestado que ya se ha invertido: suma de lo recibido (o el principal) de las
+    pignoraciones vivas cuyo dinero pasó por el efectivo del préstamo y ya salió de él
+    (`efectivoHasta` informado y no posterior a `hoy`). Ese dinero figura dentro de «aportado»
+    al comprar con él, pero no es capital propio. Sin `efectivoHasta` no se sabe si se invirtió
+    o se gastó fuera del panel, así que no se cuenta.
+    """
+    total = 0.0
+    for p in cfg.get("pignoraciones", []):
+        if not vigente(p, hoy) or p.get("estado") == "liquidada" or not p.get("efectivoHasta"):
+            continue
+        if _fecha(p["efectivoHasta"]) > hoy:
+            continue
+        total += float(p.get("recibido") or p["principal"])
+    return round(total, 2)
+
+
+def activos_efectivos(cfg, p):
+    """Fondos que respaldan el préstamo: los sueltos y los de las carteras en garantía, sin repetir.
+    Se calcula al leer: un fondo añadido después a la cartera pasa a ser garantía."""
+    de_cartera_ids = set(p.get("carteraIds") or [])
+    de_cartera = [pr["id"] for pr in cfg.get("productos", []) if pr.get("carteraId") in de_cartera_ids]
+    salida = []
+    for a in list(p.get("activos") or []) + de_cartera:
+        if a not in salida:
+            salida.append(a)
+    return salida
+
+
+def _ltv_valido(v):
+    """¿Es un LTV usable? Número finito (no bool). Un valor corrupto (archivo editado a mano) cuenta como «sin indicar»."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(v)) and float(v) > 0
+    except OverflowError:
+        return False
+
+
+def ltv_sugerido(cfg, p):
+    """LTV de las carteras en garantía, si la garantía son SOLO carteras y todas tienen el mismo; si no, None."""
+    ids = p.get("carteraIds") or []
+    if p.get("activos") or not ids:
+        return None
+    por_id = {c.get("id"): c.get("ltvMax") for c in cfg.get("carteras", [])}
+    valores = [por_id.get(i) for i in ids]
+    # Un ltvMax que no sea un número (archivo editado a mano) cuenta como «sin indicar»: no tumba el cálculo.
+    if not all(_ltv_valido(v) for v in valores) or len(set(valores)) != 1:
+        return None
+    return float(valores[0])
+
+
+def ltv_efectivo(cfg, p):
+    """LTV máximo con el que se mide el préstamo: el escrito en él; si no, el sugerido por sus carteras; si no, None."""
+    if _ltv_valido(p.get("ltvMax")):
+        return float(p["ltvMax"])
+    return ltv_sugerido(cfg, p)
+
+
 def marcas(cfg, hoy):
     """{id de producto: [{id, nombre}]} de los activos pignorados ahora mismo."""
     m = {}
     for p in cfg.get("pignoraciones", []):
         if vigente(p, hoy):
-            for a in p.get("activos") or []:
+            for a in activos_efectivos(cfg, p):
                 m.setdefault(a, []).append({"id": p["id"], "nombre": p.get("nombre")})
     return m
 
@@ -247,7 +329,7 @@ def bloquea_venta(cfg, producto, fecha):
     """Nombre de la pignoración que impide vender 'producto' en 'fecha', o None."""
     f = _fecha(fecha)
     for p in cfg.get("pignoraciones", []):
-        if producto in (p.get("activos") or []) and vigente(p, f):
+        if producto in activos_efectivos(cfg, p) and vigente(p, f):
             return p.get("nombre") or "una pignoración"
     return None
 

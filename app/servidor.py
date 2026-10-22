@@ -15,6 +15,8 @@ import re
 import secrets
 import sys
 import threading
+import time
+import urllib.parse
 import urllib.request
 import webbrowser
 from urllib.parse import urlsplit
@@ -174,8 +176,15 @@ def controla_origen():
     return None
 
 
+# CSP estricta: solo código propio (sin scripts en línea ni eval), sin conexiones ni recursos de terceros.
+# Sin estilos en línea: la interfaz escribe data-st="…" y estilos.js lo aplica con `el.style` (permitido).
+CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+       "connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+
+
 @app.after_request
 def cabeceras_de_proteccion(resp):
+    resp.headers.setdefault("Content-Security-Policy", CSP)
     resp.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")  # nadie la incrusta
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "DENY")
@@ -183,6 +192,39 @@ def cabeceras_de_proteccion(resp):
     if not request.path.startswith("/api/"):
         resp.headers["Cache-Control"] = "no-cache"          # revalidar siempre: el navegador nunca sirve estilos viejos
     return resp
+
+
+# ---------------------------------------------------------------- cotización en vivo
+
+VIVO_TTL = 30.0          # s: no se consulta a terceros más de una vez en este tiempo
+VIVO_TTL_FALLO = 10.0    # s: tras un fallo no se reintenta enseguida
+_vivo_cache = {}         # coin -> (instante monotónico, {"precio","fuente","ts"} o None)
+_vivo_cerrojo = threading.Lock()
+
+
+def _json_url(url, timeout=6):
+    req = urllib.request.Request(url, headers=motor.UA)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read(200_000).decode("utf-8", "replace"))
+
+
+def _consulta_vivo(coin):
+    """Primero CoinGecko y luego, solo para bitcoin, Binance. None si ninguna responde."""
+    fuentes = [("coingecko",
+                "https://api.coingecko.com/api/v3/simple/price?ids="
+                + urllib.parse.quote(coin, safe="") + "&vs_currencies=eur",
+                lambda j: j[coin]["eur"])]
+    if coin == "bitcoin":
+        fuentes.append(("binance", "https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR",
+                        lambda j: float(j["price"])))
+    for nombre, url, extrae in fuentes:
+        try:
+            v = float(extrae(_json_url(url)))
+            if 0 < v < float("inf"):
+                return {"precio": v, "fuente": nombre, "ts": int(time.time())}
+        except Exception:
+            continue
+    return None
 
 
 # ---------------------------------------------------------------- rutas
@@ -237,9 +279,11 @@ def api_buscar():
 
 GUARDAR = {"productos": almacen.guarda_producto, "movimientos": almacen.guarda_movimiento,
            "valoraciones": almacen.guarda_valoracion, "pignoraciones": almacen.guarda_pignoracion,
-           "asignacion": almacen.guarda_asignacion, "meta": almacen.guarda_meta}
+           "asignacion": almacen.guarda_asignacion, "meta": almacen.guarda_meta,
+           "alertas": almacen.guarda_alertas, "carteras": almacen.guarda_cartera}
 BORRAR = {"productos": almacen.borra_producto, "movimientos": almacen.borra_movimiento,
-          "valoraciones": almacen.borra_valoracion, "pignoraciones": almacen.borra_pignoracion}
+          "valoraciones": almacen.borra_valoracion, "pignoraciones": almacen.borra_pignoracion,
+          "carteras": almacen.borra_cartera}
 AVISO_DEMO = ("Estás viendo la cartera de ejemplo. Pulsa «Empezar con mis datos» "
               "para crear la tuya y poder guardar cambios.")
 
@@ -263,7 +307,7 @@ def cambia(fn):
 @app.post("/api/<coleccion>")
 def api_guardar(coleccion):
     if coleccion not in GUARDAR:
-        return jsonify(ok=False, errores=["No sé guardar eso."]), 404
+        return jsonify(ok=False, errores=["No sé guardar eso: recarga la página y vuelve a intentarlo."]), 404
     datos = request.get_json(silent=True) or {}
 
     def fn(cfg):
@@ -282,7 +326,7 @@ def api_guardar(coleccion):
 @app.delete("/api/<coleccion>/<ident>")
 def api_borrar(coleccion, ident):
     if coleccion not in BORRAR:
-        return jsonify(ok=False, errores=["No sé borrar eso."]), 404
+        return jsonify(ok=False, errores=["No sé borrar eso: recarga la página y vuelve a intentarlo."]), 404
     return cambia(lambda cfg: BORRAR[coleccion](cfg, ident))
 
 
@@ -372,7 +416,7 @@ def api_importar_previsualizar():
 def api_importar_confirmar():
     plan = PLANES.pop((request.get_json(silent=True) or {}).get("token"), None)
     if plan is None:
-        return jsonify(ok=False, errores=["Esa vista previa ya no vale: vuelve a revisar el archivo."]), 400
+        return jsonify(ok=False, errores=["Esa vista previa ya no vale: vuelve a pulsar «Previsualizar» con el archivo."]), 400
     informe = {}
 
     def fn(cfg):
@@ -414,8 +458,8 @@ def valida_copia(cfg):
     """Comprueba que un JSON tiene pinta de cartera de esta app."""
     if not isinstance(cfg, dict) or not all(isinstance(cfg.get(k), list)
                                             for k in ("productos", "movimientos", "valoraciones")):
-        raise almacen.ErrorValidacion(["Ese archivo no es una copia de seguridad de esta app."])
-    return cfg
+        raise almacen.ErrorValidacion(["Ese archivo no es una copia de seguridad de esta app. Sube el .json que descargaste en Datos → Copia de seguridad."])
+    return almacen.sanea_copia(cfg)
 
 
 def restaura(cfg):
@@ -468,7 +512,7 @@ def api_copia_subir():
     try:
         cfg = valida_copia(json.loads(importar.decodifica(f.read())))
     except ValueError:
-        return jsonify(ok=False, errores=["Ese archivo no es una copia de seguridad de esta app."]), 400
+        return jsonify(ok=False, errores=["Ese archivo no es una copia de seguridad de esta app. Sube el .json que descargaste en Datos → Copia de seguridad."]), 400
     except almacen.ErrorValidacion as e:
         return jsonify(ok=False, errores=e.errores), 400
     restaura(cfg)
@@ -554,6 +598,28 @@ def api_reiniciar():
             almacen.guarda(ruta, json.loads(json.dumps(almacen.CARTERA_VACIA)))
         recalcula(descargar="faltan")
     return jsonify(ok=True)
+
+
+@app.get("/api/vivo")
+def api_vivo():
+    """Cotización en vivo de la cripto de la cartera. La consulta el servidor (el navegador no
+    habla con terceros: no se revela su IP ni que tienes BTC). Caché de VIVO_TTL s, compartida
+    por todas las pestañas; los fallos también se recuerdan unos segundos (anti-ráfagas)."""
+    calc = lee_json(ruta_calculado()) or {}
+    vivo = calc.get("vivo") if isinstance(calc, dict) else None
+    coin = vivo.get("coin") if isinstance(vivo, dict) else None
+    if not isinstance(coin, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", coin):
+        return jsonify(ok=False), 404
+    with _vivo_cerrojo:
+        previo = _vivo_cache.get(coin)
+        if previo and time.monotonic() - previo[0] < (VIVO_TTL if previo[1] else VIVO_TTL_FALLO):
+            res = previo[1]
+        else:
+            res = _consulta_vivo(coin)
+            _vivo_cache[coin] = (time.monotonic(), res)
+    if not res:
+        return jsonify(ok=False, error="Sin cotización en vivo."), 502
+    return jsonify(ok=True, precio=res["precio"], fuente=res["fuente"], ts=res["ts"])
 
 
 @app.get("/api/ping")

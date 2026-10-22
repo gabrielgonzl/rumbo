@@ -17,12 +17,12 @@ H = {"Sec-Fetch-Site": "same-origin", "Origin": "http://localhost"}
 
 
 class Migracion(unittest.TestCase):
-    def test_v1_pasa_a_v2_sin_perder_nada(self):
+    def test_v1_pasa_a_la_version_actual_sin_perder_nada(self):
         v1 = {"version": 1, "titular": "X", "productos": [{"id": "a", "nombre": "A", "tipo": "fondo"}],
               "movimientos": [{"id": "m1"}], "valoraciones": [], "objetivo": {"activo": True, "importe": 5000}}
         copia = json.loads(json.dumps(v1))
         self.assertTrue(almacen.migra(v1))
-        self.assertEqual(v1["version"], 2)
+        self.assertEqual(v1["version"], almacen.VERSION_ACTUAL)
         self.assertEqual(v1["asignacion"], {"objetivos": {}})
         for k in copia:
             if k != "version":
@@ -33,7 +33,7 @@ class Migracion(unittest.TestCase):
         ruta = os.path.join(_TMP, "v1.json")
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump({"version": 1, "productos": [], "movimientos": [], "valoraciones": []}, f)
-        self.assertEqual(almacen.carga(ruta)["version"], 2)
+        self.assertEqual(almacen.carga(ruta)["version"], almacen.VERSION_ACTUAL)
         self.assertEqual(json.load(open(ruta, encoding="utf-8"))["version"], 1)
 
 
